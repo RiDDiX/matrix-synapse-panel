@@ -43,3 +43,67 @@ model AuditLog {
   @@index([createdAt])
   @@map("audit_logs")
 }
+
+model BrandingProfile {
+  id       String  @id @default(cuid())
+  name     String  @default("Default")
+  isActive Boolean @default(false) @map("is_active")
+  isDraft  Boolean @default(true) @map("is_draft")
+  version  Int     @default(1)
+
+  appTitle String? @map("app_title")
+  subtitle String?
+
+  primaryColor    String? @map("primary_color")
+  secondaryColor  String? @map("secondary_color")
+  accentColor     String? @map("accent_color")
+  backgroundColor String? @map("background_color")
+  panelColor      String? @map("panel_color")
+  textColor       String? @map("text_color")
+  buttonStyle     String? @map("button_style")
+  inputStyle      String? @map("input_style")
+  borderRadius    String? @map("border_radius")
+  shadowIntensity String? @map("shadow_intensity")
+  spacingDensity  String? @map("spacing_density")
+
+  layoutPreset String? @map("layout_preset")
+
+  welcomeHeadline  String? @map("welcome_headline")
+  registrationText String? @map("registration_text")
+  successMessage   String? @map("success_message")
+  footerText       String? @map("footer_text")
+  supportText      String? @map("support_text")
+
+  privacyPolicyUrl String? @map("privacy_policy_url")
+  imprintUrl       String? @map("imprint_url")
+  termsUrl         String? @map("terms_url")
+  helpUrl          String? @map("help_url")
+
+  homeserverDisplayName String? @map("homeserver_display_name")
+  homeserverUrlText     String? @map("homeserver_url_text")
+  clientRecommendation  String? @map("client_recommendation")
+  postRegistrationText  String? @map("post_registration_text") @db.Text
+
+  publishedAt DateTime? @map("published_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  assets BrandingAsset[]
+
+  @@map("branding_profiles")
+}
+
+model BrandingAsset {
+  id          String          @id @default(cuid())
+  profileId   String          @map("profile_id")
+  profile     BrandingProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  purpose     String
+  filename    String
+  storagePath String          @map("storage_path")
+  mimeType    String          @map("mime_type")
+  size        Int
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  @@index([profileId])
+  @@map("branding_assets")
+}

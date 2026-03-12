@@ -80,4 +80,11 @@ export type AuditAction =
   | "registration.success"
   | "registration.failure"
   | "admin.login"
-  | "admin.logout";
+  | "admin.logout"
+  | "branding.updated"
+  | "branding.published"
+  | "branding.reset"
+  | "branding.asset.uploaded"
+  | "branding.asset.deleted"
+  | "branding.created"
+  | "branding.deleted";
