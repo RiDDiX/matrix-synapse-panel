@@ -107,3 +107,133 @@ model BrandingAsset {
   @@index([profileId])
   @@map("branding_assets")
 }
+
+model InstalledIntegration {
+  id             String   @id @default(cuid())
+  catalogId      String   @map("catalog_id")
+  name           String
+  type           String
+  deploymentMode String   @map("deployment_mode")
+  status         String   @default("installed")
+  enabled        Boolean  @default(false)
+  version        String   @default("1.0.0")
+
+  configJson     String?  @map("config_json") @db.Text
+  statusDetail   String?  @map("status_detail")
+  healthEndpoint String?  @map("health_endpoint")
+  lastHealthAt   DateTime? @map("last_health_at")
+  lastHealthOk   Boolean?  @map("last_health_ok")
+
+  containerName  String?  @map("container_name")
+  serviceName    String?  @map("service_name")
+  networkName    String?  @map("network_name")
+  volumeNames    String?  @map("volume_names")
+
+  appserviceId   String?  @map("appservice_id")
+  appserviceFile String?  @map("appservice_file")
+
+  installedBy    String?  @map("installed_by")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  secrets  IntegrationSecret[]
+  configs  IntegrationConfig[]
+
+  @@index([catalogId])
+  @@index([type])
+  @@index([status])
+  @@map("installed_integrations")
+}
+
+model IntegrationSecret {
+  id             String               @id @default(cuid())
+  integrationId  String               @map("integration_id")
+  integration    InstalledIntegration  @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  key            String
+  encryptedValue String               @map("encrypted_value") @db.Text
+  iv             String
+  tag            String
+  rotatedAt      DateTime?            @map("rotated_at")
+  createdAt      DateTime             @default(now()) @map("created_at")
+
+  @@unique([integrationId, key])
+  @@map("integration_secrets")
+}
+
+model IntegrationConfig {
+  id            String               @id @default(cuid())
+  integrationId String               @map("integration_id")
+  integration   InstalledIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  version       Int                  @default(1)
+  configJson    String               @map("config_json") @db.Text
+  appliedAt     DateTime?            @map("applied_at")
+  createdBy     String?              @map("created_by")
+  createdAt     DateTime             @default(now()) @map("created_at")
+
+  @@index([integrationId])
+  @@map("integration_configs")
+}
+
+model BotDefinition {
+  id            String    @id @default(cuid())
+  templateId    String    @map("template_id")
+  displayName   String    @map("display_name")
+  localpart     String?
+  matrixUserId  String?   @map("matrix_user_id")
+  avatarUrl     String?   @map("avatar_url")
+  status        String    @default("created")
+  enabled       Boolean   @default(false)
+
+  configJson    String?   @map("config_json") @db.Text
+  accessTokenEnc String?  @map("access_token_enc") @db.Text
+  accessTokenIv  String?  @map("access_token_iv")
+  accessTokenTag String?  @map("access_token_tag")
+
+  lastActiveAt  DateTime? @map("last_active_at")
+  statusDetail  String?   @map("status_detail")
+
+  createdBy     String?   @map("created_by")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  rooms    BotRoomAssignment[]
+  features BotFeatureFlag[]
+
+  @@unique([localpart])
+  @@index([templateId])
+  @@index([status])
+  @@map("bot_definitions")
+}
+
+model BotRoomAssignment {
+  id         String        @id @default(cuid())
+  botId      String        @map("bot_id")
+  bot        BotDefinition @relation(fields: [botId], references: [id], onDelete: Cascade)
+  roomId     String        @map("room_id")
+  roomAlias  String?       @map("room_alias")
+  configJson String?       @map("config_json") @db.Text
+  active     Boolean       @default(true)
+  joinedAt   DateTime?     @map("joined_at")
+  createdAt  DateTime      @default(now()) @map("created_at")
+
+  @@unique([botId, roomId])
+  @@index([botId])
+  @@map("bot_room_assignments")
+}
+
+model BotFeatureFlag {
+  id         String        @id @default(cuid())
+  botId      String        @map("bot_id")
+  bot        BotDefinition @relation(fields: [botId], references: [id], onDelete: Cascade)
+  featureKey String        @map("feature_key")
+  enabled    Boolean       @default(false)
+  configJson String?       @map("config_json") @db.Text
+  scope      String        @default("global")
+  scopeId    String?       @map("scope_id")
+  createdAt  DateTime      @default(now()) @map("created_at")
+  updatedAt  DateTime      @updatedAt @map("updated_at")
+
+  @@unique([botId, featureKey, scope, scopeId])
+  @@index([botId])
+  @@map("bot_feature_flags")
+}
