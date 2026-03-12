@@ -3,6 +3,7 @@ import { validateToken } from "@/lib/synapse";
 import { tokenValidationSchema } from "@/lib/validation";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/rate-limit";
 import { getClientIp } from "@/lib/utils";
+import { resolveServerFromRequest, getServerConnection } from "@/lib/servers";
 
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
@@ -22,6 +23,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ valid: false }, { status: 400 });
   }
 
-  const valid = await validateToken(parsed.data.token);
+  const serverId = body?.serverId as string | undefined;
+  const serverSlug = body?.serverSlug as string | undefined;
+  const server = await resolveServerFromRequest(serverId, null, serverSlug);
+  if (!server || !server.enabled) {
+    return NextResponse.json({ valid: false, error: "No active homeserver" }, { status: 400 });
+  }
+
+  let conn;
+  try {
+    conn = getServerConnection(server);
+  } catch {
+    return NextResponse.json({ valid: false, error: "Server config incomplete" }, { status: 500 });
+  }
+
+  const valid = await validateToken(parsed.data.token, conn);
   return NextResponse.json({ valid });
 }

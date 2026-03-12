@@ -4,6 +4,7 @@ import { logAudit } from "@/lib/audit";
 import { registrationSchema } from "@/lib/validation";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/rate-limit";
 import { getClientIp } from "@/lib/utils";
+import { resolveServerFromRequest, getServerConnection } from "@/lib/servers";
 
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
@@ -27,27 +28,43 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Validation failed", details: errors }, { status: 400 });
   }
 
+  const serverId = body?.serverId as string | undefined;
+  const serverSlug = body?.serverSlug as string | undefined;
+  const server = await resolveServerFromRequest(serverId, null, serverSlug);
+  if (!server || !server.enabled) {
+    return NextResponse.json({ error: "No active homeserver found for this registration" }, { status: 400 });
+  }
+
+  let conn;
+  try {
+    conn = getServerConnection(server);
+  } catch {
+    return NextResponse.json({ error: "Homeserver configuration is incomplete" }, { status: 500 });
+  }
+
   const { username, password, token, displayName } = parsed.data;
 
   await logAudit({
     action: "registration.attempt",
     target: username,
     ip,
+    serverId: server.id,
   });
 
-  const result = await registerUser(username, password, token, displayName);
+  const result = await registerUser(username, password, token, displayName, conn);
 
   if (result.success) {
     await logAudit({
       action: "registration.success",
       target: result.userId ?? username,
       ip,
+      serverId: server.id,
     });
 
     return NextResponse.json({
       success: true,
       userId: result.userId,
-      homeserver: process.env.SYNAPSE_PUBLIC_URL,
+      homeserver: server.publicUrl,
     });
   }
 
@@ -56,6 +73,7 @@ export async function POST(request: NextRequest) {
     target: username,
     detail: result.errorCode ?? "unknown",
     ip,
+    serverId: server.id,
   });
 
   const statusMap: Record<string, number> = {
