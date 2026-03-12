@@ -5,15 +5,18 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
-import { LayoutDashboard, KeyRound, ScrollText, Activity, Paintbrush, LogOut, Moon, Sun } from "lucide-react";
+import { LayoutDashboard, KeyRound, ScrollText, Activity, Paintbrush, Puzzle, Bot, Stethoscope, LogOut, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 
 const navItems = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard },
   { href: "/admin/tokens", label: "Tokens", icon: KeyRound },
+  { href: "/admin/integrations", label: "Integrations", icon: Puzzle },
+  { href: "/admin/bots", label: "Bots", icon: Bot },
   { href: "/admin/branding", label: "Branding", icon: Paintbrush },
   { href: "/admin/audit", label: "Audit Log", icon: ScrollText },
   { href: "/admin/diagnostics", label: "Diagnostics", icon: Activity },
+  { href: "/admin/integrations/diagnostics", label: "Int. Diagnostics", icon: Stethoscope },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
