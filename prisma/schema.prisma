@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model AdminUser {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("admin_users")
+}
+
+model TokenMeta {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  label     String?
+  note      String?
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("token_meta")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  actor     String?
+  target    String?
+  detail    String?
+  ip        String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}

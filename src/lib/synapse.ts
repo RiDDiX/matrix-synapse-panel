@@ -1,0 +1,389 @@
+import type {
+  SynapseRegistrationToken,
+  SynapseError,
+  UiaResponse,
+  RegistrationResult,
+  DiagnosticsResult,
+} from "./types";
+
+function getInternalUrl(): string {
+  return process.env.SYNAPSE_INTERNAL_URL ?? "http://localhost:8008";
+}
+
+function getAdminToken(): string {
+  const token = process.env.SYNAPSE_ADMIN_ACCESS_TOKEN;
+  if (!token) throw new Error("SYNAPSE_ADMIN_ACCESS_TOKEN is not configured");
+  return token;
+}
+
+function adminHeaders(): HeadersInit {
+  return {
+    Authorization: `Bearer ${getAdminToken()}`,
+    "Content-Type": "application/json",
+  };
+}
+
+async function synapseRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  const url = `${getInternalUrl()}${path}`;
+  const res = await fetch(url, { ...init, cache: "no-store" });
+
+  if (!res.ok) {
+    let body: SynapseError | null = null;
+    try {
+      body = (await res.json()) as SynapseError;
+    } catch {
+      // non-JSON error
+    }
+    throw new SynapseApiError(
+      res.status,
+      body?.errcode ?? "M_UNKNOWN",
+      body?.error ?? `Synapse returned ${res.status}`
+    );
+  }
+
+  if (res.status === 204) return {} as T;
+  return res.json() as Promise<T>;
+}
+
+export class SynapseApiError extends Error {
+  constructor(
+    public status: number,
+    public errcode: string,
+    public override message: string
+  ) {
+    super(message);
+    this.name = "SynapseApiError";
+  }
+}
+
+// --- Token management (Admin API) ---
+
+export async function listTokens(): Promise<SynapseRegistrationToken[]> {
+  const data = await synapseRequest<{ registration_tokens: SynapseRegistrationToken[] }>(
+    "/_synapse/admin/v1/registration_tokens",
+    { method: "GET", headers: adminHeaders() }
+  );
+  return data.registration_tokens;
+}
+
+export async function getToken(token: string): Promise<SynapseRegistrationToken> {
+  return synapseRequest<SynapseRegistrationToken>(
+    `/_synapse/admin/v1/registration_tokens/${encodeURIComponent(token)}`,
+    { method: "GET", headers: adminHeaders() }
+  );
+}
+
+export async function createToken(params: {
+  token?: string;
+  uses_allowed?: number | null;
+  expiry_time?: number | null;
+  length?: number;
+}): Promise<SynapseRegistrationToken> {
+  return synapseRequest<SynapseRegistrationToken>(
+    "/_synapse/admin/v1/registration_tokens/new",
+    {
+      method: "POST",
+      headers: adminHeaders(),
+      body: JSON.stringify(params),
+    }
+  );
+}
+
+export async function updateToken(
+  token: string,
+  params: { uses_allowed?: number | null; expiry_time?: number | null }
+): Promise<SynapseRegistrationToken> {
+  return synapseRequest<SynapseRegistrationToken>(
+    `/_synapse/admin/v1/registration_tokens/${encodeURIComponent(token)}`,
+    {
+      method: "PUT",
+      headers: adminHeaders(),
+      body: JSON.stringify(params),
+    }
+  );
+}
+
+export async function deleteToken(token: string): Promise<void> {
+  await synapseRequest<Record<string, never>>(
+    `/_synapse/admin/v1/registration_tokens/${encodeURIComponent(token)}`,
+    { method: "DELETE", headers: adminHeaders() }
+  );
+}
+
+// --- Token validation (public, no admin token) ---
+
+export async function validateToken(token: string): Promise<boolean> {
+  const url = `${getInternalUrl()}/_matrix/client/v1/register/m.login.registration_token/validity?token=${encodeURIComponent(token)}`;
+  const res = await fetch(url, {
+    method: "GET",
+    cache: "no-store",
+  });
+
+  if (!res.ok) return false;
+  const data = (await res.json()) as { valid: boolean };
+  return data.valid === true;
+}
+
+// --- Registration (public, multi-stage UIA) ---
+
+export async function registerUser(
+  username: string,
+  password: string,
+  token: string,
+  displayName?: string
+): Promise<RegistrationResult> {
+  const baseUrl = getInternalUrl();
+  const registerUrl = `${baseUrl}/_matrix/client/v3/register`;
+
+  // Step 1: Initiate registration to get session and required flows
+  const initRes = await fetch(registerUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+    cache: "no-store",
+  });
+
+  if (initRes.status === 200) {
+    // Unlikely but handle direct success
+    const data = (await initRes.json()) as { user_id: string };
+    return { success: true, userId: data.user_id };
+  }
+
+  if (initRes.status !== 401) {
+    const err = await parseErrorResponse(initRes);
+    return { success: false, error: err.message, errorCode: err.errcode };
+  }
+
+  const uia = (await initRes.json()) as UiaResponse;
+  const session = uia.session;
+
+  if (!session) {
+    return { success: false, error: "Server did not return a UIA session", errorCode: "NO_SESSION" };
+  }
+
+  // Determine required stages
+  const flows = uia.flows ?? [];
+  const tokenFlow = flows.find((f) =>
+    f.stages.includes("m.login.registration_token")
+  );
+
+  if (!tokenFlow) {
+    // Check if MSC3861 or delegated auth might be in play
+    const hasOidc = flows.some((f) =>
+      f.stages.some((s) => s.includes("org.matrix.msc3861") || s.includes("m.login.sso"))
+    );
+    if (hasOidc) {
+      return {
+        success: false,
+        error: "This homeserver uses delegated authentication (MSC3861/OIDC). Token-based registration is not compatible with this mode.",
+        errorCode: "MSC3861_INCOMPATIBLE",
+      };
+    }
+    return {
+      success: false,
+      error: "Token-based registration is not available on this homeserver. Ensure registration_requires_token is enabled in Synapse config.",
+      errorCode: "TOKEN_FLOW_UNAVAILABLE",
+    };
+  }
+
+  // Step 2: Complete each required stage
+  const completedStages: string[] = uia.completed ?? [];
+  const remainingStages = tokenFlow.stages.filter((s) => !completedStages.includes(s));
+
+  let lastResponse: Response | null = null;
+
+  for (const stage of remainingStages) {
+    const auth = buildAuthForStage(stage, session, token);
+    if (!auth) {
+      return {
+        success: false,
+        error: `Unsupported registration stage: ${stage}`,
+        errorCode: "UNSUPPORTED_STAGE",
+      };
+    }
+
+    const body: Record<string, unknown> = {
+      auth,
+      username,
+      password,
+    };
+
+    if (displayName) {
+      body.initial_device_display_name = displayName;
+    }
+
+    lastResponse = await fetch(registerUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    });
+
+    if (lastResponse.status === 200) {
+      const data = (await lastResponse.json()) as { user_id: string };
+      return { success: true, userId: data.user_id };
+    }
+
+    if (lastResponse.status !== 401) {
+      const err = await parseErrorResponse(lastResponse);
+      return { success: false, error: err.message, errorCode: err.errcode };
+    }
+  }
+
+  // If we exhausted stages and still got 401
+  if (lastResponse && lastResponse.status === 401) {
+    const remaining = (await lastResponse.json()) as UiaResponse;
+    const leftStages = (remaining.flows?.[0]?.stages ?? []).filter(
+      (s) => !(remaining.completed ?? []).includes(s)
+    );
+    if (leftStages.length > 0) {
+      return {
+        success: false,
+        error: `Additional registration stages required: ${leftStages.join(", ")}. This portal does not yet support these stages.`,
+        errorCode: "ADDITIONAL_STAGES_REQUIRED",
+      };
+    }
+  }
+
+  return { success: false, error: "Registration failed unexpectedly", errorCode: "UNKNOWN" };
+}
+
+function buildAuthForStage(
+  stage: string,
+  session: string,
+  token: string
+): Record<string, unknown> | null {
+  switch (stage) {
+    case "m.login.registration_token":
+      return { type: "m.login.registration_token", token, session };
+    case "m.login.dummy":
+      return { type: "m.login.dummy", session };
+    case "m.login.terms":
+      return { type: "m.login.terms", session };
+    default:
+      return null;
+  }
+}
+
+async function parseErrorResponse(res: Response): Promise<{ errcode: string; message: string }> {
+  try {
+    const body = (await res.json()) as SynapseError;
+    return { errcode: body.errcode ?? "M_UNKNOWN", message: mapSynapseError(body) };
+  } catch {
+    return { errcode: "M_UNKNOWN", message: `Unexpected error (HTTP ${res.status})` };
+  }
+}
+
+function mapSynapseError(err: SynapseError): string {
+  switch (err.errcode) {
+    case "M_USER_IN_USE":
+      return "This username is already taken.";
+    case "M_INVALID_USERNAME":
+      return "The username contains invalid characters.";
+    case "M_EXCLUSIVE":
+      return "This username is reserved by the server.";
+    case "M_WEAK_PASSWORD":
+      return err.error || "The password is too weak. Please choose a stronger password.";
+    case "M_FORBIDDEN":
+      return "Registration is not permitted.";
+    case "M_LIMIT_EXCEEDED":
+      return "Too many requests. Please try again later.";
+    case "M_UNKNOWN_TOKEN":
+    case "M_UNAUTHORIZED":
+      return "The invitation code is invalid or has expired.";
+    default:
+      return err.error || "An unexpected error occurred.";
+  }
+}
+
+// --- Diagnostics ---
+
+export async function runDiagnostics(): Promise<DiagnosticsResult> {
+  const result: DiagnosticsResult = {
+    synapseReachable: false,
+    adminApiReachable: false,
+    tokenEndpointsAvailable: false,
+    registrationFlowAvailable: false,
+    serverName: process.env.SYNAPSE_SERVER_NAME ?? null,
+    registrationEnabled: null,
+    tokenRegistrationSupported: false,
+    msc3861Detected: false,
+    errors: [],
+  };
+
+  const baseUrl = getInternalUrl();
+
+  // Check basic reachability
+  try {
+    const versionRes = await fetch(`${baseUrl}/_matrix/client/versions`, { cache: "no-store" });
+    result.synapseReachable = versionRes.ok;
+    if (!versionRes.ok) {
+      result.errors.push(`Synapse version endpoint returned ${versionRes.status}`);
+    }
+  } catch (e) {
+    result.errors.push(`Cannot reach Synapse at ${baseUrl}: ${e instanceof Error ? e.message : "unknown error"}`);
+    return result;
+  }
+
+  // Check admin API
+  try {
+    const tokensRes = await fetch(`${baseUrl}/_synapse/admin/v1/registration_tokens`, {
+      headers: adminHeaders(),
+      cache: "no-store",
+    });
+    result.adminApiReachable = tokensRes.status !== 502 && tokensRes.status !== 503;
+    result.tokenEndpointsAvailable = tokensRes.ok;
+    if (!tokensRes.ok) {
+      const body = await tokensRes.text();
+      result.errors.push(`Admin token endpoint returned ${tokensRes.status}: ${body.slice(0, 200)}`);
+    }
+  } catch (e) {
+    result.errors.push(`Admin API check failed: ${e instanceof Error ? e.message : "unknown error"}`);
+  }
+
+  // Check registration flow
+  try {
+    const regRes = await fetch(`${baseUrl}/_matrix/client/v3/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+      cache: "no-store",
+    });
+
+    if (regRes.status === 401) {
+      const uia = (await regRes.json()) as UiaResponse;
+      const flows = uia.flows ?? [];
+      result.registrationFlowAvailable = flows.length > 0;
+      result.registrationEnabled = true;
+
+      result.tokenRegistrationSupported = flows.some((f) =>
+        f.stages.includes("m.login.registration_token")
+      );
+
+      result.msc3861Detected = flows.some((f) =>
+        f.stages.some((s) => s.includes("org.matrix.msc3861"))
+      );
+
+      if (result.msc3861Detected) {
+        result.errors.push(
+          "MSC3861 (delegated auth) detected. Token-based registration via this portal is incompatible with this mode."
+        );
+      }
+
+      if (!result.tokenRegistrationSupported) {
+        result.errors.push(
+          "m.login.registration_token stage not found in registration flows. Enable registration_requires_token in Synapse config."
+        );
+      }
+    } else if (regRes.status === 403) {
+      result.registrationEnabled = false;
+      result.errors.push("Registration appears to be disabled on this homeserver.");
+    } else {
+      result.errors.push(`Unexpected registration endpoint response: ${regRes.status}`);
+    }
+  } catch (e) {
+    result.errors.push(`Registration flow check failed: ${e instanceof Error ? e.message : "unknown error"}`);
+  }
+
+  return result;
+}
