@@ -6,25 +6,28 @@ import type {
   DiagnosticsResult,
 } from "./types";
 
-function getInternalUrl(): string {
-  return process.env.SYNAPSE_INTERNAL_URL ?? "http://localhost:8008";
+export interface SynapseConnection {
+  internalUrl: string;
+  adminToken: string;
 }
 
-function getAdminToken(): string {
-  const token = process.env.SYNAPSE_ADMIN_ACCESS_TOKEN;
-  if (!token) throw new Error("SYNAPSE_ADMIN_ACCESS_TOKEN is not configured");
-  return token;
-}
-
-function adminHeaders(): HeadersInit {
+function getDefaultConnection(): SynapseConnection {
   return {
-    Authorization: `Bearer ${getAdminToken()}`,
+    internalUrl: process.env.SYNAPSE_INTERNAL_URL ?? "http://localhost:8008",
+    adminToken: process.env.SYNAPSE_ADMIN_ACCESS_TOKEN ?? "",
+  };
+}
+
+function adminHeaders(conn: SynapseConnection): HeadersInit {
+  if (!conn.adminToken) throw new Error("Admin token is not configured for this server");
+  return {
+    Authorization: `Bearer ${conn.adminToken}`,
     "Content-Type": "application/json",
   };
 }
 
-async function synapseRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const url = `${getInternalUrl()}${path}`;
+async function synapseRequest<T>(baseUrl: string, path: string, init?: RequestInit): Promise<T> {
+  const url = `${baseUrl}${path}`;
   const res = await fetch(url, { ...init, cache: "no-store" });
 
   if (!res.ok) {
@@ -58,18 +61,22 @@ export class SynapseApiError extends Error {
 
 // --- Token management (Admin API) ---
 
-export async function listTokens(): Promise<SynapseRegistrationToken[]> {
+export async function listTokens(conn?: SynapseConnection): Promise<SynapseRegistrationToken[]> {
+  const c = conn ?? getDefaultConnection();
   const data = await synapseRequest<{ registration_tokens: SynapseRegistrationToken[] }>(
+    c.internalUrl,
     "/_synapse/admin/v1/registration_tokens",
-    { method: "GET", headers: adminHeaders() }
+    { method: "GET", headers: adminHeaders(c) }
   );
   return data.registration_tokens;
 }
 
-export async function getToken(token: string): Promise<SynapseRegistrationToken> {
+export async function getToken(token: string, conn?: SynapseConnection): Promise<SynapseRegistrationToken> {
+  const c = conn ?? getDefaultConnection();
   return synapseRequest<SynapseRegistrationToken>(
+    c.internalUrl,
     `/_synapse/admin/v1/registration_tokens/${encodeURIComponent(token)}`,
-    { method: "GET", headers: adminHeaders() }
+    { method: "GET", headers: adminHeaders(c) }
   );
 }
 
@@ -78,12 +85,14 @@ export async function createToken(params: {
   uses_allowed?: number | null;
   expiry_time?: number | null;
   length?: number;
-}): Promise<SynapseRegistrationToken> {
+}, conn?: SynapseConnection): Promise<SynapseRegistrationToken> {
+  const c = conn ?? getDefaultConnection();
   return synapseRequest<SynapseRegistrationToken>(
+    c.internalUrl,
     "/_synapse/admin/v1/registration_tokens/new",
     {
       method: "POST",
-      headers: adminHeaders(),
+      headers: adminHeaders(c),
       body: JSON.stringify(params),
     }
   );
@@ -91,29 +100,35 @@ export async function createToken(params: {
 
 export async function updateToken(
   token: string,
-  params: { uses_allowed?: number | null; expiry_time?: number | null }
+  params: { uses_allowed?: number | null; expiry_time?: number | null },
+  conn?: SynapseConnection
 ): Promise<SynapseRegistrationToken> {
+  const c = conn ?? getDefaultConnection();
   return synapseRequest<SynapseRegistrationToken>(
+    c.internalUrl,
     `/_synapse/admin/v1/registration_tokens/${encodeURIComponent(token)}`,
     {
       method: "PUT",
-      headers: adminHeaders(),
+      headers: adminHeaders(c),
       body: JSON.stringify(params),
     }
   );
 }
 
-export async function deleteToken(token: string): Promise<void> {
+export async function deleteToken(token: string, conn?: SynapseConnection): Promise<void> {
+  const c = conn ?? getDefaultConnection();
   await synapseRequest<Record<string, never>>(
+    c.internalUrl,
     `/_synapse/admin/v1/registration_tokens/${encodeURIComponent(token)}`,
-    { method: "DELETE", headers: adminHeaders() }
+    { method: "DELETE", headers: adminHeaders(c) }
   );
 }
 
 // --- Token validation (public, no admin token) ---
 
-export async function validateToken(token: string): Promise<boolean> {
-  const url = `${getInternalUrl()}/_matrix/client/v1/register/m.login.registration_token/validity?token=${encodeURIComponent(token)}`;
+export async function validateToken(token: string, conn?: SynapseConnection): Promise<boolean> {
+  const c = conn ?? getDefaultConnection();
+  const url = `${c.internalUrl}/_matrix/client/v1/register/m.login.registration_token/validity?token=${encodeURIComponent(token)}`;
   const res = await fetch(url, {
     method: "GET",
     cache: "no-store",
@@ -130,9 +145,11 @@ export async function registerUser(
   username: string,
   password: string,
   token: string,
-  displayName?: string
+  displayName?: string,
+  conn?: SynapseConnection
 ): Promise<RegistrationResult> {
-  const baseUrl = getInternalUrl();
+  const c = conn ?? getDefaultConnection();
+  const baseUrl = c.internalUrl;
   const registerUrl = `${baseUrl}/_matrix/client/v3/register`;
 
   // Step 1: Initiate registration to get session and required flows
@@ -298,20 +315,21 @@ function mapSynapseError(err: SynapseError): string {
 
 // --- Diagnostics ---
 
-export async function runDiagnostics(): Promise<DiagnosticsResult> {
+export async function runDiagnostics(conn?: SynapseConnection, serverName?: string): Promise<DiagnosticsResult> {
+  const c = conn ?? getDefaultConnection();
   const result: DiagnosticsResult = {
     synapseReachable: false,
     adminApiReachable: false,
     tokenEndpointsAvailable: false,
     registrationFlowAvailable: false,
-    serverName: process.env.SYNAPSE_SERVER_NAME ?? null,
+    serverName: serverName ?? process.env.SYNAPSE_SERVER_NAME ?? null,
     registrationEnabled: null,
     tokenRegistrationSupported: false,
     msc3861Detected: false,
     errors: [],
   };
 
-  const baseUrl = getInternalUrl();
+  const baseUrl = c.internalUrl;
 
   // Check basic reachability
   try {
@@ -328,7 +346,7 @@ export async function runDiagnostics(): Promise<DiagnosticsResult> {
   // Check admin API
   try {
     const tokensRes = await fetch(`${baseUrl}/_synapse/admin/v1/registration_tokens`, {
-      headers: adminHeaders(),
+      headers: adminHeaders(c),
       cache: "no-store",
     });
     result.adminApiReachable = tokensRes.status !== 502 && tokensRes.status !== 503;

@@ -16,8 +16,9 @@ export function sanitizeBot(bot: BotWithRelations): SafeBot {
   return safe;
 }
 
-export async function listBots(): Promise<SafeBot[]> {
+export async function listBots(serverId: string): Promise<SafeBot[]> {
   const bots = await db.botDefinition.findMany({
+    where: { serverId },
     include: { rooms: true, features: true },
     orderBy: { createdAt: "desc" },
   });
@@ -34,6 +35,7 @@ export async function getBotById(id: string): Promise<BotWithRelations | null> {
 export async function createBot(params: {
   templateId: string;
   displayName: string;
+  serverId: string;
   localpart?: string;
   avatarUrl?: string;
   configJson?: Record<string, unknown>;
@@ -44,6 +46,7 @@ export async function createBot(params: {
 
   const bot = await db.botDefinition.create({
     data: {
+      serverId: params.serverId,
       templateId: params.templateId,
       displayName: params.displayName,
       localpart: params.localpart || null,

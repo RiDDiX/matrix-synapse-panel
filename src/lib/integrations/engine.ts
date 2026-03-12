@@ -27,8 +27,9 @@ async function ensureIntegrationDir(integrationId: string): Promise<string> {
   return dir;
 }
 
-export async function listInstalledIntegrations() {
+export async function listInstalledIntegrations(serverId: string) {
   return db.installedIntegration.findMany({
+    where: { serverId },
     include: { secrets: { select: { id: true, key: true, rotatedAt: true, createdAt: true } }, configs: true },
     orderBy: { createdAt: "desc" },
   });
@@ -43,6 +44,7 @@ export async function getInstalledIntegration(id: string) {
 
 export async function installIntegration(
   catalogId: string,
+  serverId: string,
   actor: string
 ): Promise<InstallResult> {
   const entry = getCatalogEntry(catalogId);
@@ -54,14 +56,15 @@ export async function installIntegration(
   const mode: CapabilityMode = entry.deploymentModes.includes(caps.mode) ? caps.mode : "guided";
 
   const existing = await db.installedIntegration.findFirst({
-    where: { catalogId },
+    where: { catalogId, serverId },
   });
   if (existing) {
-    return { success: false, mode, generatedFiles: [], nextSteps: [], error: "Integration already installed" };
+    return { success: false, mode, generatedFiles: [], nextSteps: [], error: "Integration already installed on this server" };
   }
 
   const integration = await db.installedIntegration.create({
     data: {
+      serverId,
       catalogId,
       name: entry.name,
       type: entry.type,
