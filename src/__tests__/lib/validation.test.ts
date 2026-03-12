@@ -4,6 +4,9 @@ import {
   registrationSchema,
   brandingUpdateSchema,
   createTokenSchema,
+  createServerSchema,
+  updateServerSchema,
+  rotateServerTokenSchema,
 } from "@/lib/validation";
 
 describe("loginSchema", () => {
@@ -125,5 +128,115 @@ describe("brandingUpdateSchema", () => {
   it("rejects oversized text fields", () => {
     const result = brandingUpdateSchema.safeParse({ appTitle: "x".repeat(501) });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("createServerSchema", () => {
+  const valid = {
+    name: "My Homeserver",
+    slug: "my-homeserver",
+    serverName: "example.com",
+    internalUrl: "http://synapse:8008",
+    publicUrl: "https://matrix.example.com",
+    adminToken: "syt_admin_token_here",
+  };
+
+  it("accepts valid server creation", () => {
+    expect(createServerSchema.safeParse(valid).success).toBe(true);
+  });
+
+  it("accepts with optional fields", () => {
+    const result = createServerSchema.safeParse({
+      ...valid,
+      notes: "Production server",
+      publicDomain: "matrix.example.com",
+      routePrefix: "/matrix",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects missing name", () => {
+    const { name: _, ...rest } = valid;
+    expect(createServerSchema.safeParse(rest).success).toBe(false);
+  });
+
+  it("rejects missing slug", () => {
+    const { slug: _, ...rest } = valid;
+    expect(createServerSchema.safeParse(rest).success).toBe(false);
+  });
+
+  it("rejects invalid slug characters", () => {
+    expect(createServerSchema.safeParse({ ...valid, slug: "My Server!" }).success).toBe(false);
+  });
+
+  it("rejects uppercase slug", () => {
+    expect(createServerSchema.safeParse({ ...valid, slug: "MyServer" }).success).toBe(false);
+  });
+
+  it("accepts hyphenated slug", () => {
+    expect(createServerSchema.safeParse({ ...valid, slug: "my-cool-server-1" }).success).toBe(true);
+  });
+
+  it("rejects invalid internalUrl", () => {
+    expect(createServerSchema.safeParse({ ...valid, internalUrl: "not-a-url" }).success).toBe(false);
+  });
+
+  it("rejects invalid publicUrl", () => {
+    expect(createServerSchema.safeParse({ ...valid, publicUrl: "not-a-url" }).success).toBe(false);
+  });
+
+  it("rejects empty adminToken", () => {
+    expect(createServerSchema.safeParse({ ...valid, adminToken: "" }).success).toBe(false);
+  });
+
+  it("rejects missing serverName", () => {
+    const { serverName: _, ...rest } = valid;
+    expect(createServerSchema.safeParse(rest).success).toBe(false);
+  });
+});
+
+describe("updateServerSchema", () => {
+  it("accepts empty update (no fields)", () => {
+    expect(updateServerSchema.safeParse({}).success).toBe(true);
+  });
+
+  it("accepts partial name update", () => {
+    expect(updateServerSchema.safeParse({ name: "New Name" }).success).toBe(true);
+  });
+
+  it("accepts partial slug update", () => {
+    expect(updateServerSchema.safeParse({ slug: "new-slug" }).success).toBe(true);
+  });
+
+  it("rejects invalid slug in update", () => {
+    expect(updateServerSchema.safeParse({ slug: "INVALID!" }).success).toBe(false);
+  });
+
+  it("accepts nullable optional fields", () => {
+    const result = updateServerSchema.safeParse({
+      notes: null,
+      publicDomain: null,
+      routePrefix: null,
+      brandingProfileId: null,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects invalid URL in update", () => {
+    expect(updateServerSchema.safeParse({ internalUrl: "bad" }).success).toBe(false);
+  });
+});
+
+describe("rotateServerTokenSchema", () => {
+  it("accepts valid token", () => {
+    expect(rotateServerTokenSchema.safeParse({ adminToken: "syt_new_token" }).success).toBe(true);
+  });
+
+  it("rejects empty token", () => {
+    expect(rotateServerTokenSchema.safeParse({ adminToken: "" }).success).toBe(false);
+  });
+
+  it("rejects missing token", () => {
+    expect(rotateServerTokenSchema.safeParse({}).success).toBe(false);
   });
 });

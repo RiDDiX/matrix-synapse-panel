@@ -2,17 +2,18 @@
 
 Invitation-code-based self-registration portal for Matrix Synapse homeservers.
 
-Provides an admin dashboard for managing registration tokens and a public registration page for invited users.
+Provides an admin dashboard for managing registration tokens and a public registration page for invited users. Supports managing multiple Synapse homeservers from a single deployment.
 
 ## Features
 
-- **Admin Dashboard** — overview stats, token CRUD with labels/notes, audit log, Synapse diagnostics
+- **Multi-Server Management** — add, configure, enable/disable, and monitor multiple Synapse homeservers from one dashboard; server context selector for scoped administration; admin token encryption at rest
+- **Admin Dashboard** — overview stats, token CRUD with labels/notes, audit log, Synapse diagnostics (all scoped per server)
 - **Integration Management** — install, configure, enable/disable, and monitor bridges and services from a unified catalog; supports managed (Docker) and guided (manual) deployment modes; generates appservice registration YAML and Docker Compose fragments
 - **Bot Platform** — create bots from templates (welcome, moderation, keyword responder, webhook relay, notification, bridge support, custom command); manage room assignments, feature toggles, and access tokens
 - **Branding Management** — full white-label system: visual identity, theme colors, layout presets, custom content, footer links, asset uploads, draft/publish workflow with live preview
 - **Public Registration** — branded form with invitation code validation, username/password/display name, dynamic theming from published branding profile
-- **Synapse Integration** — wraps Synapse Admin API for token management; uses standard Matrix UIA registration flow with `m.login.registration_token`
-- **Security** — admin tokens never exposed to clients, iron-session cookies, rate limiting, input validation (Zod), security headers, audit logging, AES-256-GCM secret encryption
+- **Synapse Integration** — wraps Synapse Admin API for token management; uses standard Matrix UIA registration flow with `m.login.registration_token`; per-server connection configuration
+- **Security** — admin tokens never exposed to clients, iron-session cookies, rate limiting, input validation (Zod), security headers, audit logging, AES-256-GCM secret encryption, server admin tokens encrypted at rest
 - **Dark Mode** — full light/dark theme support
 - **Docker Ready** — multi-stage Dockerfile, docker-compose with PostgreSQL, non-root container
 
@@ -20,10 +21,10 @@ Provides an admin dashboard for managing registration tokens and a public regist
 
 - Node.js 20+
 - PostgreSQL 14+
-- Matrix Synapse homeserver with:
+- One or more Matrix Synapse homeservers with:
   - `enable_registration: true`
   - `registration_requires_token: true`
-  - An admin user access token
+  - An admin user access token per server
 
 ## Quick Start (Docker)
 
@@ -63,17 +64,19 @@ npm run dev
 | `APP_NAME` | No | Application display name (default: RiDDiX Invite Portal) |
 | `APP_URL` | No | Public URL of the application |
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
-| `SESSION_SECRET` | Yes | Secret for iron-session (min 32 chars) |
+| `SESSION_SECRET` | Yes | Secret for iron-session + AES-256-GCM encryption (min 32 chars) |
 | `ADMIN_EMAIL` | Yes | Admin login email |
 | `ADMIN_PASSWORD` | Yes | Admin login password (hashed at seed time) |
-| `SYNAPSE_INTERNAL_URL` | Yes | Synapse URL reachable from the app (e.g. `http://synapse:8008`) |
-| `SYNAPSE_PUBLIC_URL` | Yes | Public Synapse URL shown to users |
-| `SYNAPSE_SERVER_NAME` | Yes | Matrix server name (e.g. `example.com`) |
-| `SYNAPSE_ADMIN_ACCESS_TOKEN` | Yes | Synapse admin user access token |
+| `SYNAPSE_INTERNAL_URL` | No* | Legacy single-server: Synapse URL reachable from the app |
+| `SYNAPSE_PUBLIC_URL` | No* | Legacy single-server: Public Synapse URL shown to users |
+| `SYNAPSE_SERVER_NAME` | No* | Legacy single-server: Matrix server name |
+| `SYNAPSE_ADMIN_ACCESS_TOKEN` | No* | Legacy single-server: Synapse admin user access token |
 | `RATE_LIMIT_WINDOW_MS` | No | Rate limit window in ms (default: 900000) |
 | `RATE_LIMIT_MAX_REQUESTS` | No | Max requests per window (default: 15) |
 | `SYNAPSE_CONFIG_DIR` | No | Path to Synapse config dir (for appservice registration in managed mode) |
 | `SYNAPSE_APPSERVICE_DIR` | No | Path to Synapse appservice registration dir |
+
+\* These env vars are **optional** when using multi-server management (Admin → Servers). They serve as fallback for backward compatibility with single-server deployments.
 
 ## Synapse Configuration
 
@@ -90,7 +93,8 @@ Do **not** enable MSC3861/OIDC delegation — this portal uses the standard regi
 
 1. Log in to your Synapse as an admin user
 2. Use the Synapse Admin API or Element's `/devtools` to retrieve the access token
-3. Set it as `SYNAPSE_ADMIN_ACCESS_TOKEN` in your `.env`
+3. For multi-server: add the token when creating a server in Admin → Servers
+4. For legacy single-server: set it as `SYNAPSE_ADMIN_ACCESS_TOKEN` in your `.env`
 
 ## Architecture
 
@@ -98,12 +102,13 @@ Do **not** enable MSC3861/OIDC delegation — this portal uses the standard regi
 src/
 ├── app/
 │   ├── api/
-│   │   ├── admin/        # Protected admin endpoints (tokens, stats, audit, diagnostics, branding, integrations, bots)
+│   │   ├── admin/        # Protected admin endpoints (servers, tokens, stats, audit, diagnostics, branding, integrations, bots)
 │   │   ├── auth/         # Login, logout, session check
 │   │   ├── branding/     # Public branding + asset serving
 │   │   ├── health/       # Health check endpoint
+│   │   ├── server/       # Public server resolution
 │   │   └── register/     # Public registration + token validation
-│   ├── admin/            # Admin dashboard pages (overview, tokens, integrations, bots, branding, audit, diagnostics)
+│   ├── admin/            # Admin dashboard pages (servers, overview, tokens, integrations, bots, branding, audit, diagnostics)
 │   └── register/         # Public registration page with dynamic branding
 ├── __tests__/            # Unit tests (rate limiting, validation, types, branding, integrations, bots)
 ├── components/
@@ -125,7 +130,9 @@ src/
     │   └── types.ts      # Integration type definitions
     ├── rate-limit.ts     # In-memory rate limiting
     ├── session.ts        # iron-session config
-    ├── synapse.ts        # Synapse API wrapper
+    ├── servers.ts        # Multi-server service layer (CRUD, encryption, diagnostics)
+    ├── server-context.tsx  # React context for server selection in admin UI
+    ├── synapse.ts        # Synapse API wrapper (per-server connections)
     ├── types.ts          # TypeScript type definitions
     ├── utils.ts          # Utility functions
     └── validation.ts     # Zod schemas
@@ -148,8 +155,9 @@ Ensure `X-Forwarded-For` and `X-Real-IP` headers are passed for accurate rate li
 
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/api/register` | Register a new user |
-| `POST` | `/api/register/validate-token` | Check if a token is valid |
+| `POST` | `/api/register` | Register a new user (accepts `serverId`) |
+| `POST` | `/api/register/validate-token` | Check if a token is valid (accepts `serverId`) |
+| `GET` | `/api/server/resolve` | Resolve server by slug, domain, or ID |
 | `GET` | `/api/health` | Health check |
 | `GET` | `/api/branding` | Active branding config |
 | `GET` | `/api/branding/assets/:id` | Serve branding asset |
@@ -161,14 +169,20 @@ Ensure `X-Forwarded-For` and `X-Real-IP` headers are passed for accurate rate li
 | `POST` | `/api/auth/login` | Admin login |
 | `POST` | `/api/auth/logout` | Admin logout |
 | `GET` | `/api/auth/session` | Check session status |
-| `GET` | `/api/admin/tokens` | List all tokens |
-| `POST` | `/api/admin/tokens` | Create a token |
-| `GET` | `/api/admin/tokens/:token` | Get token details |
+| `GET` | `/api/admin/servers` | List managed servers |
+| `POST` | `/api/admin/servers` | Add a managed server |
+| `GET` | `/api/admin/servers/:id` | Get server details |
+| `PUT` | `/api/admin/servers/:id` | Update server config |
+| `PATCH` | `/api/admin/servers/:id` | Server actions (enable, disable, set_default, rotate_token, diagnostics) |
+| `DELETE` | `/api/admin/servers/:id` | Delete a managed server |
+| `GET` | `/api/admin/tokens?serverId=` | List tokens (server-scoped) |
+| `POST` | `/api/admin/tokens` | Create a token (requires `serverId`) |
+| `GET` | `/api/admin/tokens/:token` | Get token details (requires `serverId`) |
 | `PUT` | `/api/admin/tokens/:token` | Update a token |
-| `DELETE` | `/api/admin/tokens/:token` | Delete a token |
-| `GET` | `/api/admin/stats` | Dashboard statistics |
-| `GET` | `/api/admin/audit` | Audit log entries |
-| `GET` | `/api/admin/diagnostics` | Synapse connectivity check |
+| `DELETE` | `/api/admin/tokens/:token` | Delete a token (requires `serverId`) |
+| `GET` | `/api/admin/stats?serverId=` | Dashboard statistics (server-scoped) |
+| `GET` | `/api/admin/audit?serverId=` | Audit log entries (optional server filter) |
+| `GET` | `/api/admin/diagnostics?serverId=` | Synapse connectivity check (server-scoped) |
 | `GET` | `/api/admin/branding` | List branding profiles |
 | `POST` | `/api/admin/branding` | Create branding profile |
 | `GET` | `/api/admin/branding/:id` | Get branding profile |
@@ -203,8 +217,9 @@ Ensure `X-Forwarded-For` and `X-Real-IP` headers are passed for accurate rate li
 Uses PostgreSQL with Prisma ORM. Models:
 
 - **AdminUser** — admin credentials (bcrypt hashed)
-- **TokenMeta** — local labels/notes for Synapse tokens
-- **AuditLog** — all admin and registration activity
+- **ManagedServer** — homeserver configurations with encrypted admin tokens
+- **TokenMeta** — local labels/notes for Synapse tokens (server-scoped)
+- **AuditLog** — all admin and registration activity (server-scoped)
 - **BrandingProfile** — branding configuration (theme, layout, content, links)
 - **BrandingAsset** — uploaded images (logo, favicon, hero, background)
 - **InstalledIntegration** — installed bridges/services with status, config, deployment mode
@@ -218,9 +233,10 @@ Migrations run automatically on container startup via `docker-entrypoint.sh`.
 
 ## Security Notes
 
-- Admin access tokens are **never** sent to the browser
+- Admin access tokens are **never** sent to the browser; server admin tokens encrypted at rest (AES-256-GCM)
 - Passwords are **never** stored locally (only transient during registration submission to Synapse)
 - Admin password is bcrypt-hashed at seed time
+- Server admin tokens stripped from all API responses via `sanitizeServer()`
 - All API inputs validated with Zod
 - Rate limiting on login, registration, and token validation
 - Security headers set via middleware (X-Frame-Options, X-Content-Type-Options, Referrer-Policy)
@@ -233,6 +249,8 @@ Migrations run automatically on container startup via `docker-entrypoint.sh`.
 - All integration and bot mutations audit-logged
 - Integrations must be disabled before uninstall; bots must be deactivated before deletion
 - No direct writes to Synapse database — all interaction via Synapse Admin API
+- Multi-server data isolation: all scoped queries include `serverId` filter
+- Public server resolve endpoint exposes only non-sensitive fields (id, name, slug, serverName, publicUrl)
 
 ## Branding
 
