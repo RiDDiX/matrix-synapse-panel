@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [alpha, main]
+  pull_request:
+    branches: [alpha, main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-build:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: invite_portal_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d invite_portal_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/invite_portal_ci
+      SESSION_SECRET: ci-only-not-a-real-secret-must-be-32-chars-minimum
+      ADMIN_EMAIL: ci@localhost
+      ADMIN_PASSWORD: ci-placeholder
+      SYNAPSE_INTERNAL_URL: http://localhost:8008
+      SYNAPSE_PUBLIC_URL: https://matrix.example.com
+      SYNAPSE_SERVER_NAME: example.com
+      SYNAPSE_ADMIN_ACCESS_TOKEN: ci_placeholder_not_real
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx prisma generate
+
+      - run: npx prisma migrate deploy
+
+      - run: npm run build
