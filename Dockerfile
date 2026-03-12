@@ -36,7 +36,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modul
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
 
-RUN mkdir -p data/uploads/branding
+RUN mkdir -p data/uploads/branding data/integrations
 RUN chown -R nextjs:nodejs data
 
 RUN chmod +x docker-entrypoint.sh

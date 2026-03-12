@@ -7,10 +7,12 @@ Provides an admin dashboard for managing registration tokens and a public regist
 ## Features
 
 - **Admin Dashboard** — overview stats, token CRUD with labels/notes, audit log, Synapse diagnostics
+- **Integration Management** — install, configure, enable/disable, and monitor bridges and services from a unified catalog; supports managed (Docker) and guided (manual) deployment modes; generates appservice registration YAML and Docker Compose fragments
+- **Bot Platform** — create bots from templates (welcome, moderation, keyword responder, webhook relay, notification, bridge support, custom command); manage room assignments, feature toggles, and access tokens
 - **Branding Management** — full white-label system: visual identity, theme colors, layout presets, custom content, footer links, asset uploads, draft/publish workflow with live preview
 - **Public Registration** — branded form with invitation code validation, username/password/display name, dynamic theming from published branding profile
 - **Synapse Integration** — wraps Synapse Admin API for token management; uses standard Matrix UIA registration flow with `m.login.registration_token`
-- **Security** — admin tokens never exposed to clients, iron-session cookies, rate limiting, input validation (Zod), security headers, audit logging
+- **Security** — admin tokens never exposed to clients, iron-session cookies, rate limiting, input validation (Zod), security headers, audit logging, AES-256-GCM secret encryption
 - **Dark Mode** — full light/dark theme support
 - **Docker Ready** — multi-stage Dockerfile, docker-compose with PostgreSQL, non-root container
 
@@ -70,6 +72,8 @@ npm run dev
 | `SYNAPSE_ADMIN_ACCESS_TOKEN` | Yes | Synapse admin user access token |
 | `RATE_LIMIT_WINDOW_MS` | No | Rate limit window in ms (default: 900000) |
 | `RATE_LIMIT_MAX_REQUESTS` | No | Max requests per window (default: 15) |
+| `SYNAPSE_CONFIG_DIR` | No | Path to Synapse config dir (for appservice registration in managed mode) |
+| `SYNAPSE_APPSERVICE_DIR` | No | Path to Synapse appservice registration dir |
 
 ## Synapse Configuration
 
@@ -94,14 +98,14 @@ Do **not** enable MSC3861/OIDC delegation — this portal uses the standard regi
 src/
 ├── app/
 │   ├── api/
-│   │   ├── admin/        # Protected admin endpoints (tokens, stats, audit, diagnostics, branding)
+│   │   ├── admin/        # Protected admin endpoints (tokens, stats, audit, diagnostics, branding, integrations, bots)
 │   │   ├── auth/         # Login, logout, session check
 │   │   ├── branding/     # Public branding + asset serving
 │   │   ├── health/       # Health check endpoint
 │   │   └── register/     # Public registration + token validation
-│   ├── admin/            # Admin dashboard pages (overview, tokens, branding, audit, diagnostics)
+│   ├── admin/            # Admin dashboard pages (overview, tokens, integrations, bots, branding, audit, diagnostics)
 │   └── register/         # Public registration page with dynamic branding
-├── __tests__/            # Unit tests (rate limiting, validation, types, branding)
+├── __tests__/            # Unit tests (rate limiting, validation, types, branding, integrations, bots)
 ├── components/
 │   └── ui/               # shadcn/ui components
 ├── hooks/                # React hooks (toast)
@@ -112,6 +116,13 @@ src/
     ├── branding-defaults.ts # Default branding values and asset config
     ├── db.ts             # Prisma client
     ├── env.ts            # Environment validation
+    ├── integrations/     # Integration management platform
+    │   ├── bots.ts       # Bot lifecycle, room assignments, features
+    │   ├── catalog/      # Integration catalog + bot templates
+    │   ├── crypto.ts     # AES-256-GCM secret encryption
+    │   ├── engine.ts     # Integration lifecycle (install, config, health, files)
+    │   ├── environment.ts # Deployment mode detection
+    │   └── types.ts      # Integration type definitions
     ├── rate-limit.ts     # In-memory rate limiting
     ├── session.ts        # iron-session config
     ├── synapse.ts        # Synapse API wrapper
@@ -167,6 +178,25 @@ Ensure `X-Forwarded-For` and `X-Real-IP` headers are passed for accurate rate li
 | `POST` | `/api/admin/branding/:id/publish` | Publish branding profile |
 | `POST` | `/api/admin/branding/assets` | Upload branding asset |
 | `DELETE` | `/api/admin/branding/assets/:id` | Delete branding asset |
+| `GET` | `/api/admin/integrations` | List installed integrations |
+| `GET` | `/api/admin/integrations?view=catalog` | Browse integration catalog |
+| `POST` | `/api/admin/integrations` | Install integration from catalog |
+| `GET` | `/api/admin/integrations/:id` | Get integration details + generated files |
+| `PUT` | `/api/admin/integrations/:id` | Update integration configuration |
+| `PATCH` | `/api/admin/integrations/:id` | Lifecycle actions (enable, disable, health) |
+| `DELETE` | `/api/admin/integrations/:id` | Uninstall integration |
+| `POST` | `/api/admin/integrations/:id/secrets` | Set/rotate integration secret |
+| `GET` | `/api/admin/integrations/diagnostics` | System diagnostics snapshot |
+| `GET` | `/api/admin/bots` | List all bots |
+| `GET` | `/api/admin/bots?view=templates` | List bot templates |
+| `POST` | `/api/admin/bots` | Create bot from template |
+| `GET` | `/api/admin/bots/:id` | Get bot details |
+| `PUT` | `/api/admin/bots/:id` | Update bot config |
+| `PATCH` | `/api/admin/bots/:id` | Bot actions (activate, deactivate, set_token) |
+| `DELETE` | `/api/admin/bots/:id` | Delete bot |
+| `POST` | `/api/admin/bots/:id/rooms` | Assign bot to room |
+| `DELETE` | `/api/admin/bots/:id/rooms` | Unassign bot from room |
+| `POST` | `/api/admin/bots/:id/features` | Toggle bot feature |
 
 ## Database
 
@@ -177,6 +207,12 @@ Uses PostgreSQL with Prisma ORM. Models:
 - **AuditLog** — all admin and registration activity
 - **BrandingProfile** — branding configuration (theme, layout, content, links)
 - **BrandingAsset** — uploaded images (logo, favicon, hero, background)
+- **InstalledIntegration** — installed bridges/services with status, config, deployment mode
+- **IntegrationSecret** — encrypted secrets for integrations (AES-256-GCM)
+- **IntegrationConfig** — versioned configuration snapshots
+- **BotDefinition** — bot instances with template, status, encrypted access token
+- **BotRoomAssignment** — bot-to-room mappings
+- **BotFeatureFlag** — per-bot feature toggles (global or per-room scope)
 
 Migrations run automatically on container startup via `docker-entrypoint.sh`.
 
@@ -192,6 +228,11 @@ Migrations run automatically on container startup via `docker-entrypoint.sh`.
 - Branding asset uploads validated by type, size, and extension (no SVG)
 - Branding text fields sanitized against XSS; no raw HTML injection
 - All branding changes logged in audit trail
+- Integration secrets encrypted at rest with AES-256-GCM (derived from SESSION_SECRET)
+- Bot access tokens encrypted, never returned in API responses
+- All integration and bot mutations audit-logged
+- Integrations must be disabled before uninstall; bots must be deactivated before deletion
+- No direct writes to Synapse database — all interaction via Synapse Admin API
 
 ## Branding
 
@@ -208,6 +249,51 @@ Capabilities:
 Workflow: edit fields → save draft → preview in live panel → publish. Reset to defaults at any time. All changes are versioned and audit-logged.
 
 Uploaded assets are stored in `data/uploads/branding/` (Docker volume `uploads`). Accepted formats: PNG, JPEG, WebP, GIF, ICO. Max 2 MB (favicon: 256 KB).
+
+## Integrations
+
+The admin dashboard includes an integration management platform at `/admin/integrations`.
+
+### Catalog
+
+Pre-configured catalog entries for:
+- **WhatsApp Bridge** (mautrix-whatsapp) — stable, double puppeting, end-to-end bridging
+- **Signal Bridge** (mautrix-signal) — beta, requires signald sidecar
+- **Telegram Bridge** (mautrix-telegram) — beta, requires Telegram API credentials
+
+### Deployment Modes
+
+- **Managed** — the platform generates Docker Compose fragments and appservice registration YAML, writes them to the configured directories, and manages the service lifecycle
+- **Guided** — the platform generates configuration files and provides step-by-step instructions for manual deployment; used when Docker or filesystem access is not available
+
+The mode is auto-detected based on environment capabilities (Docker availability, filesystem permissions, Synapse config directory access).
+
+### Generated Files
+
+For each installed integration, the platform can generate:
+- Appservice registration YAML (for Synapse `app_service_config_files`)
+- Docker Compose fragment
+
+In guided mode, these are displayed in the UI for copy/paste.
+
+## Bots
+
+The admin dashboard includes a bot management platform at `/admin/bots`.
+
+### Templates
+
+- **Welcome Bot** — greets new room members
+- **Moderation Helper** — keyword filtering, auto-moderation actions
+- **Keyword Responder** — responds to trigger keywords/patterns (thread-aware)
+- **Webhook Relay** — receives external webhooks and posts to rooms
+- **Notification Bot** — scheduled messages and announcements
+- **Bridge Support Bot** — monitors bridge health, helps with pairing
+- **Custom Command Bot** — user-defined commands with custom responses (thread-aware)
+
+### Features
+
+Each bot supports granular feature toggles (global or per-room scope):
+command handling, keyword triggers, webhook notifications, scheduled messages, moderation actions, room auto-join, room-specific responses, thread-aware replies, message relay, admin-only commands.
 
 ## License
 
