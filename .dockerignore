@@ -12,3 +12,4 @@ coverage/
 docker-compose*.yml
 .dockerignore
 Dockerfile
+docs-site/

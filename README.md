@@ -1,4 +1,8 @@
-# RiDDiX Invite Portal
+<p align="center">
+  <img src="docs/RMS-Logo.png" alt="RiDDiX Matrix Control" width="400" />
+</p>
+
+# RiDDiX Matrix Control
 
 Invitation-code-based self-registration portal for Matrix Synapse homeservers.
 
