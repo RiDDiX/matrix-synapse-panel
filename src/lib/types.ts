@@ -72,6 +72,14 @@ export interface DashboardStats {
 }
 
 export type AuditAction =
+  | "server.created"
+  | "server.updated"
+  | "server.enabled"
+  | "server.disabled"
+  | "server.deleted"
+  | "server.default.changed"
+  | "server.token.rotated"
+  | "server.diagnostics.run"
   | "token.created"
   | "token.updated"
   | "token.disabled"

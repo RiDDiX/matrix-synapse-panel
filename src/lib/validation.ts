@@ -133,6 +133,37 @@ export const botFeatureSchema = z.object({
   config: z.record(z.unknown()).optional(),
 });
 
+export const createServerSchema = z.object({
+  name: z.string().min(1).max(200),
+  slug: z.string().min(1).max(100).regex(/^[a-z0-9-]+$/, "Slug may only contain lowercase letters, numbers, and hyphens"),
+  serverName: z.string().min(1).max(500),
+  internalUrl: z.string().url().max(2048),
+  publicUrl: z.string().url().max(2048),
+  adminToken: z.string().min(1).max(10000),
+  notes: z.string().max(5000).optional(),
+  publicDomain: z.string().max(500).optional(),
+  routePrefix: z.string().max(100).optional(),
+  brandingProfileId: z.string().max(100).optional(),
+});
+
+export const updateServerSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  slug: z.string().min(1).max(100).regex(/^[a-z0-9-]+$/, "Slug may only contain lowercase letters, numbers, and hyphens").optional(),
+  serverName: z.string().min(1).max(500).optional(),
+  internalUrl: z.string().url().max(2048).optional(),
+  publicUrl: z.string().url().max(2048).optional(),
+  notes: z.string().max(5000).nullable().optional(),
+  publicDomain: z.string().max(500).nullable().optional(),
+  routePrefix: z.string().max(100).nullable().optional(),
+  brandingProfileId: z.string().max(100).nullable().optional(),
+  registrationMode: z.string().max(100).nullable().optional(),
+  managedMode: z.string().max(100).nullable().optional(),
+});
+
+export const rotateServerTokenSchema = z.object({
+  adminToken: z.string().min(1).max(10000),
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateTokenInput = z.infer<typeof createTokenSchema>;
 export type UpdateTokenInput = z.infer<typeof updateTokenSchema>;

@@ -12,26 +12,77 @@ model AdminUser {
   email     String   @unique
   password  String
   name      String?
+  role      String   @default("global_admin")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("admin_users")
 }
 
+model ManagedServer {
+  id              String   @id @default(cuid())
+  name            String
+  slug            String   @unique
+  serverName      String   @map("server_name")
+  internalUrl     String   @map("internal_url")
+  publicUrl       String   @map("public_url")
+  status          String   @default("draft")
+  enabled         Boolean  @default(false)
+  isDefault       Boolean  @default(false) @map("is_default")
+  notes           String?  @db.Text
+
+  adminTokenEnc   String?  @map("admin_token_enc") @db.Text
+  adminTokenIv    String?  @map("admin_token_iv")
+  adminTokenTag   String?  @map("admin_token_tag")
+
+  capabilityMode  String?  @map("capability_mode")
+  lastDiagAt      DateTime? @map("last_diag_at")
+  lastDiagOk      Boolean?  @map("last_diag_ok")
+  diagJson        String?   @map("diag_json") @db.Text
+
+  publicDomain    String?  @map("public_domain")
+  routePrefix     String?  @map("route_prefix")
+  registrationMode String? @map("registration_mode")
+  managedMode     String?  @map("managed_mode")
+
+  brandingProfileId String? @map("branding_profile_id")
+  brandingProfile   BrandingProfile? @relation(fields: [brandingProfileId], references: [id], onDelete: SetNull)
+
+  createdBy       String?  @map("created_by")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  tokenMetas      TokenMeta[]
+  auditLogs       AuditLog[]
+  integrations    InstalledIntegration[]
+  bots            BotDefinition[]
+
+  @@index([serverName])
+  @@index([slug])
+  @@index([status])
+  @@map("managed_servers")
+}
+
 model TokenMeta {
   id        String   @id @default(cuid())
-  token     String   @unique
+  serverId  String   @map("server_id")
+  server    ManagedServer @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  token     String
   label     String?
   note      String?
   createdBy String?  @map("created_by")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  @@unique([serverId, token])
+  @@index([serverId])
   @@map("token_meta")
 }
 
 model AuditLog {
   id        String   @id @default(cuid())
+  serverId  String?  @map("server_id")
+  server    ManagedServer? @relation(fields: [serverId], references: [id], onDelete: SetNull)
   action    String
   actor     String?
   target    String?
@@ -39,6 +90,7 @@ model AuditLog {
   ip        String?
   createdAt DateTime @default(now()) @map("created_at")
 
+  @@index([serverId])
   @@index([action])
   @@index([createdAt])
   @@map("audit_logs")
@@ -88,7 +140,8 @@ model BrandingProfile {
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
-  assets BrandingAsset[]
+  assets  BrandingAsset[]
+  servers ManagedServer[]
 
   @@map("branding_profiles")
 }
@@ -110,6 +163,8 @@ model BrandingAsset {
 
 model InstalledIntegration {
   id             String   @id @default(cuid())
+  serverId       String   @map("server_id")
+  server         ManagedServer @relation(fields: [serverId], references: [id], onDelete: Cascade)
   catalogId      String   @map("catalog_id")
   name           String
   type           String
@@ -139,6 +194,7 @@ model InstalledIntegration {
   secrets  IntegrationSecret[]
   configs  IntegrationConfig[]
 
+  @@index([serverId])
   @@index([catalogId])
   @@index([type])
   @@index([status])
@@ -176,6 +232,8 @@ model IntegrationConfig {
 
 model BotDefinition {
   id            String    @id @default(cuid())
+  serverId      String    @map("server_id")
+  server        ManagedServer @relation(fields: [serverId], references: [id], onDelete: Cascade)
   templateId    String    @map("template_id")
   displayName   String    @map("display_name")
   localpart     String?
@@ -199,7 +257,8 @@ model BotDefinition {
   rooms    BotRoomAssignment[]
   features BotFeatureFlag[]
 
-  @@unique([localpart])
+  @@unique([serverId, localpart])
+  @@index([serverId])
   @@index([templateId])
   @@index([status])
   @@map("bot_definitions")
