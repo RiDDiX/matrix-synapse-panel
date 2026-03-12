@@ -88,9 +88,61 @@ export const brandingCreateSchema = z.object({
   name: z.string().min(1, "Profile name is required").max(100),
 });
 
+export const installIntegrationSchema = z.object({
+  catalogId: z.string().min(1).max(100),
+});
+
+export const integrationConfigSchema = z.object({
+  config: z.record(z.unknown()),
+});
+
+export const integrationSecretSchema = z.object({
+  key: z.string().min(1).max(100),
+  value: z.string().min(1).max(10000),
+});
+
+export const createBotSchema = z.object({
+  templateId: z.string().min(1).max(100),
+  displayName: z.string().min(1).max(200),
+  localpart: z
+    .string()
+    .regex(/^[a-z0-9._=-]+$/, "Localpart may only contain lowercase letters, numbers, and ._=-")
+    .max(64)
+    .optional(),
+  avatarUrl: safeUrl.optional(),
+  config: z.record(z.unknown()).optional(),
+});
+
+export const updateBotSchema = z.object({
+  displayName: z.string().min(1).max(200).optional(),
+  avatarUrl: safeUrl.optional(),
+  config: z.record(z.unknown()).optional(),
+});
+
+export const botRoomAssignmentSchema = z.object({
+  roomId: z.string().min(1).max(500).regex(/^!/, "Must be a valid Matrix room ID starting with !"),
+  roomAlias: z.string().max(500).optional(),
+  config: z.record(z.unknown()).optional(),
+});
+
+export const botFeatureSchema = z.object({
+  featureKey: z.string().min(1).max(100),
+  enabled: z.boolean(),
+  scope: z.enum(["global", "room"]).default("global"),
+  scopeId: z.string().max(500).optional(),
+  config: z.record(z.unknown()).optional(),
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateTokenInput = z.infer<typeof createTokenSchema>;
 export type UpdateTokenInput = z.infer<typeof updateTokenSchema>;
 export type RegistrationInput = z.infer<typeof registrationSchema>;
 export type BrandingUpdateInput = z.infer<typeof brandingUpdateSchema>;
 export type BrandingCreateInput = z.infer<typeof brandingCreateSchema>;
+export type InstallIntegrationInput = z.infer<typeof installIntegrationSchema>;
+export type IntegrationConfigInput = z.infer<typeof integrationConfigSchema>;
+export type IntegrationSecretInput = z.infer<typeof integrationSecretSchema>;
+export type CreateBotInput = z.infer<typeof createBotSchema>;
+export type UpdateBotInput = z.infer<typeof updateBotSchema>;
+export type BotRoomAssignmentInput = z.infer<typeof botRoomAssignmentSchema>;
+export type BotFeatureInput = z.infer<typeof botFeatureSchema>;

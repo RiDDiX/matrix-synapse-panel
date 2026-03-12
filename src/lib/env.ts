@@ -16,6 +16,8 @@ const envSchema = z.object({
   RATE_LIMIT_MAX_REQUESTS: z.coerce.number().positive().default(15),
   CAPTCHA_SITE_KEY: z.string().optional(),
   CAPTCHA_SECRET: z.string().optional(),
+  SYNAPSE_CONFIG_DIR: z.string().optional(),
+  SYNAPSE_APPSERVICE_DIR: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
