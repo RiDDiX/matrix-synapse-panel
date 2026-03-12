@@ -16,7 +16,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ templates: BOT_TEMPLATES });
   }
 
-  const bots = await listBots();
+  const serverId = request.nextUrl.searchParams.get("serverId");
+  if (!serverId) return NextResponse.json({ error: "serverId is required" }, { status: 400 });
+
+  const bots = await listBots(serverId);
   return NextResponse.json({ bots });
 }
 
@@ -31,10 +34,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid input", details: parsed.error.flatten().fieldErrors }, { status: 400 });
   }
 
+  const serverId = body?.serverId as string | undefined;
+  if (!serverId) return NextResponse.json({ error: "serverId is required" }, { status: 400 });
+
   try {
     const bot = await createBot({
       templateId: parsed.data.templateId,
       displayName: parsed.data.displayName,
+      serverId,
       localpart: parsed.data.localpart,
       avatarUrl: parsed.data.avatarUrl ?? undefined,
       configJson: parsed.data.config as Record<string, unknown> | undefined,
@@ -47,6 +54,7 @@ export async function POST(request: NextRequest) {
       target: bot.id,
       detail: `template: ${parsed.data.templateId}, name: ${parsed.data.displayName}`,
       ip: getClientIp(request),
+      serverId,
     });
 
     return NextResponse.json({ bot }, { status: 201 });

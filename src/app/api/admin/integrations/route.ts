@@ -18,7 +18,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ catalog: entries });
   }
 
-  const integrations = await listInstalledIntegrations();
+  const serverId = request.nextUrl.searchParams.get("serverId");
+  if (!serverId) return NextResponse.json({ error: "serverId is required" }, { status: 400 });
+
+  const integrations = await listInstalledIntegrations(serverId);
   return NextResponse.json({ integrations });
 }
 
@@ -33,7 +36,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid input", details: parsed.error.flatten().fieldErrors }, { status: 400 });
   }
 
-  const result = await installIntegration(parsed.data.catalogId, auth.email);
+  const serverId = body?.serverId as string | undefined;
+  if (!serverId) return NextResponse.json({ error: "serverId is required" }, { status: 400 });
+
+  const result = await installIntegration(parsed.data.catalogId, serverId, auth.email);
 
   if (!result.success) {
     return NextResponse.json({ error: result.error }, { status: 400 });
@@ -45,6 +51,7 @@ export async function POST(request: NextRequest) {
     target: parsed.data.catalogId,
     detail: `mode: ${result.mode}`,
     ip: getClientIp(request),
+    serverId,
   });
 
   return NextResponse.json({ result }, { status: 201 });

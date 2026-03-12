@@ -1,17 +1,24 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth-guard";
 import { detectCapabilities } from "@/lib/integrations/environment";
 import { listInstalledIntegrations, checkIntegrationHealth } from "@/lib/integrations/engine";
 import { listBots, getBotHealth } from "@/lib/integrations/bots";
 import type { DiagnosticsSnapshot, IntegrationHealthResult } from "@/lib/integrations/types";
+import { getServerConnectionById } from "@/lib/servers";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const auth = await requireAdmin();
   if (auth instanceof NextResponse) return auth;
 
+  const url = new URL(request.url);
+  const serverId = url.searchParams.get("serverId");
+  if (!serverId) {
+    return NextResponse.json({ error: "serverId is required" }, { status: 400 });
+  }
+
   const caps = await detectCapabilities();
-  const integrations = await listInstalledIntegrations();
-  const bots = await listBots();
+  const integrations = await listInstalledIntegrations(serverId);
+  const bots = await listBots(serverId);
 
   const integrationHealth: Record<string, IntegrationHealthResult> = {};
   for (const integration of integrations) {
@@ -31,10 +38,6 @@ export async function GET() {
   const requiredEnvVars = [
     "DATABASE_URL",
     "SESSION_SECRET",
-    "SYNAPSE_INTERNAL_URL",
-    "SYNAPSE_PUBLIC_URL",
-    "SYNAPSE_SERVER_NAME",
-    "SYNAPSE_ADMIN_ACCESS_TOKEN",
   ];
   const optionalEnvVars = ["SYNAPSE_CONFIG_DIR", "SYNAPSE_APPSERVICE_DIR"];
 
@@ -51,9 +54,9 @@ export async function GET() {
 
   let synapseConnectivity = false;
   try {
-    const url = process.env.SYNAPSE_INTERNAL_URL;
-    if (url) {
-      const res = await fetch(`${url}/_matrix/client/versions`, {
+    const conn = await getServerConnectionById(serverId);
+    if (conn) {
+      const res = await fetch(`${conn.internalUrl}/_matrix/client/versions`, {
         signal: AbortSignal.timeout(5000),
         cache: "no-store",
       });
