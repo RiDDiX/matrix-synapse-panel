@@ -1,0 +1,42 @@
+services:
+  app:
+    build: .
+    container_name: riddix-invite-portal
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-portal}:${POSTGRES_PASSWORD:-portal}@db:5432/${POSTGRES_DB:-invite_portal}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - portal
+
+  db:
+    image: postgres:16-alpine
+    container_name: riddix-invite-portal-db
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-portal}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-portal}
+      - POSTGRES_DB=${POSTGRES_DB:-invite_portal}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U portal -d invite_portal"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - portal
+
+volumes:
+  pgdata:
+
+networks:
+  portal:
