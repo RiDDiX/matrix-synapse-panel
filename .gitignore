@@ -41,6 +41,9 @@ Thumbs.db
 # test
 coverage/
 
+# uploads
+data/
+
 # misc
 *.tsbuildinfo
 next-env.d.ts

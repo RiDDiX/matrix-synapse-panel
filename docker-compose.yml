@@ -9,6 +9,8 @@ services:
       - .env
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-portal}:${POSTGRES_PASSWORD:-portal}@db:5432/${POSTGRES_DB:-invite_portal}
+    volumes:
+      - uploads:/app/data
     depends_on:
       db:
         condition: service_healthy
@@ -37,6 +39,7 @@ services:
 
 volumes:
   pgdata:
+  uploads:
 
 networks:
   portal:
