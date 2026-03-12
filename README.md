@@ -7,7 +7,8 @@ Provides an admin dashboard for managing registration tokens and a public regist
 ## Features
 
 - **Admin Dashboard** — overview stats, token CRUD with labels/notes, audit log, Synapse diagnostics
-- **Public Registration** — clean form with invitation code validation, username/password/display name
+- **Branding Management** — full white-label system: visual identity, theme colors, layout presets, custom content, footer links, asset uploads, draft/publish workflow with live preview
+- **Public Registration** — branded form with invitation code validation, username/password/display name, dynamic theming from published branding profile
 - **Synapse Integration** — wraps Synapse Admin API for token management; uses standard Matrix UIA registration flow with `m.login.registration_token`
 - **Security** — admin tokens never exposed to clients, iron-session cookies, rate limiting, input validation (Zod), security headers, audit logging
 - **Dark Mode** — full light/dark theme support
@@ -93,18 +94,22 @@ Do **not** enable MSC3861/OIDC delegation — this portal uses the standard regi
 src/
 ├── app/
 │   ├── api/
-│   │   ├── admin/        # Protected admin endpoints (tokens, stats, audit, diagnostics)
+│   │   ├── admin/        # Protected admin endpoints (tokens, stats, audit, diagnostics, branding)
 │   │   ├── auth/         # Login, logout, session check
+│   │   ├── branding/     # Public branding + asset serving
 │   │   ├── health/       # Health check endpoint
 │   │   └── register/     # Public registration + token validation
-│   ├── admin/            # Admin dashboard pages
-│   └── register/         # Public registration page
+│   ├── admin/            # Admin dashboard pages (overview, tokens, branding, audit, diagnostics)
+│   └── register/         # Public registration page with dynamic branding
+├── __tests__/            # Unit tests (rate limiting, validation, types, branding)
 ├── components/
 │   └── ui/               # shadcn/ui components
 ├── hooks/                # React hooks (toast)
 └── lib/                  # Core utilities
     ├── audit.ts          # Audit logging
     ├── auth-guard.ts     # Admin route protection
+    ├── branding.ts       # Branding service layer (CRUD, assets, publishing)
+    ├── branding-defaults.ts # Default branding values and asset config
     ├── db.ts             # Prisma client
     ├── env.ts            # Environment validation
     ├── rate-limit.ts     # In-memory rate limiting
@@ -135,6 +140,8 @@ Ensure `X-Forwarded-For` and `X-Real-IP` headers are passed for accurate rate li
 | `POST` | `/api/register` | Register a new user |
 | `POST` | `/api/register/validate-token` | Check if a token is valid |
 | `GET` | `/api/health` | Health check |
+| `GET` | `/api/branding` | Active branding config |
+| `GET` | `/api/branding/assets/:id` | Serve branding asset |
 
 ### Admin (requires authentication)
 
@@ -151,6 +158,15 @@ Ensure `X-Forwarded-For` and `X-Real-IP` headers are passed for accurate rate li
 | `GET` | `/api/admin/stats` | Dashboard statistics |
 | `GET` | `/api/admin/audit` | Audit log entries |
 | `GET` | `/api/admin/diagnostics` | Synapse connectivity check |
+| `GET` | `/api/admin/branding` | List branding profiles |
+| `POST` | `/api/admin/branding` | Create branding profile |
+| `GET` | `/api/admin/branding/:id` | Get branding profile |
+| `PUT` | `/api/admin/branding/:id` | Update branding profile (draft) |
+| `DELETE` | `/api/admin/branding/:id` | Delete branding profile |
+| `PATCH` | `/api/admin/branding/:id` | Reset profile to defaults |
+| `POST` | `/api/admin/branding/:id/publish` | Publish branding profile |
+| `POST` | `/api/admin/branding/assets` | Upload branding asset |
+| `DELETE` | `/api/admin/branding/assets/:id` | Delete branding asset |
 
 ## Database
 
@@ -159,6 +175,8 @@ Uses PostgreSQL with Prisma ORM. Models:
 - **AdminUser** — admin credentials (bcrypt hashed)
 - **TokenMeta** — local labels/notes for Synapse tokens
 - **AuditLog** — all admin and registration activity
+- **BrandingProfile** — branding configuration (theme, layout, content, links)
+- **BrandingAsset** — uploaded images (logo, favicon, hero, background)
 
 Migrations run automatically on container startup via `docker-entrypoint.sh`.
 
@@ -171,6 +189,25 @@ Migrations run automatically on container startup via `docker-entrypoint.sh`.
 - Rate limiting on login, registration, and token validation
 - Security headers set via middleware (X-Frame-Options, X-Content-Type-Options, Referrer-Policy)
 - iron-session provides encrypted, HTTP-only, secure cookies
+- Branding asset uploads validated by type, size, and extension (no SVG)
+- Branding text fields sanitized against XSS; no raw HTML injection
+- All branding changes logged in audit trail
+
+## Branding
+
+The admin dashboard includes a full branding management system at `/admin/branding`.
+
+Capabilities:
+- **Visual Identity** — app title, subtitle, logo, favicon, hero image, background image
+- **Theme** — primary/secondary/accent/background/panel/text colors, button and input styles, border radius, shadow intensity, spacing density
+- **Layout** — choose from centered, split-screen, left-image, top-branding, or compact presets
+- **Content** — welcome headline, registration text, success message, footer, support text
+- **Links** — privacy policy, imprint, terms of service, help page
+- **Presentation** — homeserver display name, client recommendation, post-registration instructions
+
+Workflow: edit fields → save draft → preview in live panel → publish. Reset to defaults at any time. All changes are versioned and audit-logged.
+
+Uploaded assets are stored in `data/uploads/branding/` (Docker volume `uploads`). Accepted formats: PNG, JPEG, WebP, GIF, ICO. Max 2 MB (favicon: 256 KB).
 
 ## License
 
