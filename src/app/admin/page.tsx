@@ -3,21 +3,45 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KeyRound, CheckCircle2, Clock, XCircle, Ban, UserPlus } from "lucide-react";
+import { useServerContext } from "@/lib/server-context";
 import type { DashboardStats } from "@/lib/types";
 
 export default function OverviewPage() {
+  const { current, loading: serverLoading } = useServerContext();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/admin/stats")
+    if (!current) {
+      setStats(null);
+      return;
+    }
+    setError(null);
+    fetch(`/api/admin/stats?serverId=${current.id}`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load stats");
         return res.json();
       })
       .then(setStats)
       .catch((e) => setError(e.message));
-  }, []);
+  }, [current]);
+
+  if (serverLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!current) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+        <p className="text-lg font-medium">No homeserver configured</p>
+        <p className="text-sm">Add a homeserver under Servers to get started.</p>
+      </div>
+    );
+  }
 
   if (error) {
     return (

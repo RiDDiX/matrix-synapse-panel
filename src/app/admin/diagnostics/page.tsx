@@ -5,16 +5,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RefreshCw, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { useServerContext } from "@/lib/server-context";
 import type { DiagnosticsResult } from "@/lib/types";
 
 export default function DiagnosticsPage() {
+  const { current, loading: serverLoading } = useServerContext();
   const [result, setResult] = useState<DiagnosticsResult | null>(null);
   const [loading, setLoading] = useState(true);
 
   async function runCheck() {
+    if (!current) return;
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/diagnostics");
+      const res = await fetch(`/api/admin/diagnostics?serverId=${current.id}`);
       if (!res.ok) throw new Error();
       setResult(await res.json());
     } catch {
@@ -24,7 +27,10 @@ export default function DiagnosticsPage() {
     }
   }
 
-  useEffect(() => { runCheck(); }, []);
+  useEffect(() => { runCheck(); }, [current]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (serverLoading) return <div className="flex items-center justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>;
+  if (!current) return <div className="flex flex-col items-center justify-center py-20 text-muted-foreground"><p>Select a homeserver to run diagnostics.</p></div>;
 
   function StatusIcon({ ok }: { ok: boolean | null }) {
     if (ok === null) return <AlertTriangle className="h-4 w-4 text-amber-500" />;

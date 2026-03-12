@@ -8,6 +8,7 @@ import {
   MessageCircle, Shield, Send, AlertTriangle, CheckCircle2, XCircle,
   Clock, Loader2,
 } from "lucide-react";
+import { useServerContext } from "@/lib/server-context";
 
 interface InstalledIntegration {
   id: string;
@@ -63,6 +64,7 @@ function getIcon(name?: string) {
 
 export default function IntegrationsPage() {
   const router = useRouter();
+  const { current, loading: serverLoading } = useServerContext();
   const [tab, setTab] = useState<"installed" | "catalog">("installed");
   const [integrations, setIntegrations] = useState<InstalledIntegration[]>([]);
   const [catalog, setCatalog] = useState<CatalogEntry[]>([]);
@@ -71,12 +73,13 @@ export default function IntegrationsPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const fetchInstalled = useCallback(async () => {
-    const res = await fetch("/api/admin/integrations");
+    if (!current) return;
+    const res = await fetch(`/api/admin/integrations?serverId=${current.id}`);
     if (res.ok) {
       const data = await res.json();
       setIntegrations(data.integrations ?? []);
     }
-  }, []);
+  }, [current]);
 
   const fetchCatalog = useCallback(async () => {
     const q = search ? `&q=${encodeURIComponent(search)}` : "";
@@ -108,11 +111,12 @@ export default function IntegrationsPage() {
   }
 
   async function handleInstall(catalogId: string) {
+    if (!current) return;
     setActionLoading(catalogId);
     const res = await fetch("/api/admin/integrations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ catalogId }),
+      body: JSON.stringify({ catalogId, serverId: current.id }),
     });
     if (res.ok) {
       setTab("installed");
@@ -130,6 +134,9 @@ export default function IntegrationsPage() {
   }
 
   const installedCatalogIds = new Set(integrations.map((i) => i.catalogId));
+
+  if (serverLoading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
+  if (!current) return <div className="text-center py-12 text-muted-foreground"><p>Select a homeserver to manage integrations.</p></div>;
 
   return (
     <div className="space-y-6">

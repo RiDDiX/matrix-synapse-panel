@@ -63,8 +63,12 @@ export default function RegisterPage() {
 function RegisterForm() {
   const searchParams = useSearchParams();
   const prefillToken = searchParams.get("token") ?? "";
+  const serverSlug = searchParams.get("server") ?? undefined;
+  const serverIdParam = searchParams.get("serverId") ?? undefined;
 
   const [branding, setBranding] = useState<Branding | null>(null);
+  const [resolvedServerId, setResolvedServerId] = useState<string | null>(null);
+  const [serverError, setServerError] = useState<string | null>(null);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -77,16 +81,30 @@ function RegisterForm() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const params = new URLSearchParams();
+    if (serverSlug) params.set("slug", serverSlug);
+    else if (serverIdParam) params.set("serverId", serverIdParam);
+    const qs = params.toString();
+    fetch(`/api/server/resolve${qs ? `?${qs}` : ""}`)
+      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
+      .then((data) => { setResolvedServerId(data.server.id); })
+      .catch(() => { setServerError("Could not resolve homeserver. Registration is unavailable."); });
+  }, [serverSlug, serverIdParam]);
+
+  useEffect(() => {
     fetch("/api/branding").then((r) => r.json()).then(setBranding).catch(() => {});
   }, []);
 
   const validateToken = useCallback(async (value: string) => {
     if (!value.trim()) { setTokenValid(null); return; }
     try {
+      const body: Record<string, string> = { token: value };
+      if (resolvedServerId) body.serverId = resolvedServerId;
+      else if (serverSlug) body.serverSlug = serverSlug;
       const res = await fetch("/api/register/validate-token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: value }),
+        body: JSON.stringify(body),
       });
       if (res.ok) {
         const data = await res.json();
@@ -95,7 +113,7 @@ function RegisterForm() {
         setTokenValid(false);
       }
     } catch { setTokenValid(null); }
-  }, []);
+  }, [resolvedServerId, serverSlug]);
 
   useEffect(() => {
     if (prefillToken) { setToken(prefillToken); validateToken(prefillToken); }
@@ -111,10 +129,13 @@ function RegisterForm() {
       return;
     }
     try {
+      const regBody: Record<string, unknown> = { username, password, confirmPassword, token, displayName: displayName || undefined };
+      if (resolvedServerId) regBody.serverId = resolvedServerId;
+      else if (serverSlug) regBody.serverSlug = serverSlug;
       const res = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password, confirmPassword, token, displayName: displayName || undefined }),
+        body: JSON.stringify(regBody),
       });
       const data = await res.json();
       if (res.ok && data.success) {
@@ -127,6 +148,19 @@ function RegisterForm() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (serverError) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex flex-col items-center text-center pt-8 pb-8 gap-4">
+            <p className="text-destructive font-medium">{serverError}</p>
+            <p className="text-sm text-muted-foreground">Please check the invite link or contact your administrator.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   const b = branding;

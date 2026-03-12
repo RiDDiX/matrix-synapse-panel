@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
+import { useServerContext } from "@/lib/server-context";
 
 interface AuditEntry {
   id: string;
@@ -31,6 +32,7 @@ const actionColors: Record<string, "default" | "success" | "destructive" | "warn
 };
 
 export default function AuditPage() {
+  const { current } = useServerContext();
   const [logs, setLogs] = useState<AuditEntry[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -39,7 +41,8 @@ export default function AuditPage() {
   const fetchLogs = useCallback(async (currentOffset: number) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/audit?limit=${PAGE_SIZE}&offset=${currentOffset}`);
+      const serverParam = current ? `&serverId=${current.id}` : "";
+      const res = await fetch(`/api/admin/audit?limit=${PAGE_SIZE}&offset=${currentOffset}${serverParam}`);
       if (!res.ok) throw new Error();
       const data = await res.json();
       setLogs(data.logs ?? []);
@@ -49,8 +52,9 @@ export default function AuditPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [current]);
 
+  useEffect(() => { setOffset(0); fetchLogs(0); }, [current, fetchLogs]);
   useEffect(() => { fetchLogs(offset); }, [offset, fetchLogs]);
 
   const totalPages = Math.ceil(total / PAGE_SIZE);

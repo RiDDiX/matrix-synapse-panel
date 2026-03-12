@@ -8,6 +8,7 @@ import {
   CheckCircle2, Clock, HandMetal, ShieldCheck, MessageSquareText,
   Webhook, Bell, LifeBuoy, Terminal,
 } from "lucide-react";
+import { useServerContext } from "@/lib/server-context";
 
 interface BotDef {
   id: string;
@@ -43,6 +44,7 @@ function getTemplateIcon(name?: string) {
 
 export default function BotsPage() {
   const router = useRouter();
+  const { current, loading: serverLoading } = useServerContext();
   const [tab, setTab] = useState<"bots" | "create">("bots");
   const [bots, setBots] = useState<BotDef[]>([]);
   const [templates, setTemplates] = useState<BotTemplate[]>([]);
@@ -54,12 +56,13 @@ export default function BotsPage() {
   const [newBotLocalpart, setNewBotLocalpart] = useState("");
 
   const fetchBots = useCallback(async () => {
-    const res = await fetch("/api/admin/bots");
+    if (!current) return;
+    const res = await fetch(`/api/admin/bots?serverId=${current.id}`);
     if (res.ok) {
       const data = await res.json();
       setBots(data.bots ?? []);
     }
-  }, []);
+  }, [current]);
 
   const fetchTemplates = useCallback(async () => {
     const res = await fetch("/api/admin/bots?view=templates");
@@ -93,7 +96,7 @@ export default function BotsPage() {
   }
 
   async function handleCreate() {
-    if (!selectedTemplate || !newBotName) return;
+    if (!selectedTemplate || !newBotName || !current) return;
     setActionLoading("create");
     const res = await fetch("/api/admin/bots", {
       method: "POST",
@@ -102,6 +105,7 @@ export default function BotsPage() {
         templateId: selectedTemplate,
         displayName: newBotName,
         localpart: newBotLocalpart || undefined,
+        serverId: current.id,
       }),
     });
     if (res.ok) {
@@ -114,12 +118,16 @@ export default function BotsPage() {
     setActionLoading(null);
   }
 
-  if (loading) {
+  if (serverLoading || loading) {
     return (
       <div className="flex justify-center py-12">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
       </div>
     );
+  }
+
+  if (!current) {
+    return <div className="text-center py-12 text-muted-foreground"><p>Select a homeserver to manage bots.</p></div>;
   }
 
   return (

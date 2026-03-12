@@ -11,6 +11,7 @@ import { formatDate } from "@/lib/utils";
 import { getTokenStatus } from "@/lib/types";
 import type { TokenWithMeta, TokenStatus } from "@/lib/types";
 import { Plus, Copy, Trash2, Ban, Link2, RefreshCw } from "lucide-react";
+import { useServerContext } from "@/lib/server-context";
 
 const statusVariant: Record<TokenStatus, "success" | "warning" | "destructive" | "secondary"> = {
   valid: "success",
@@ -20,15 +21,17 @@ const statusVariant: Record<TokenStatus, "success" | "warning" | "destructive" |
 };
 
 export default function TokensPage() {
+  const { current, loading: serverLoading } = useServerContext();
   const [tokens, setTokens] = useState<TokenWithMeta[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const { toast } = useToast();
 
   const fetchTokens = useCallback(async () => {
+    if (!current) return;
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/tokens");
+      const res = await fetch(`/api/admin/tokens?serverId=${current.id}`);
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       setTokens(data.tokens ?? []);
@@ -37,14 +40,19 @@ export default function TokensPage() {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, current]);
 
   useEffect(() => { fetchTokens(); }, [fetchTokens]);
 
   async function handleDelete(token: string) {
+    if (!current) return;
     if (!confirm(`Delete token "${token}"? This cannot be undone.`)) return;
     try {
-      const res = await fetch(`/api/admin/tokens/${encodeURIComponent(token)}`, { method: "DELETE" });
+      const res = await fetch(`/api/admin/tokens/${encodeURIComponent(token)}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ serverId: current.id }),
+      });
       if (!res.ok) throw new Error("Failed to delete");
       toast({ title: "Token deleted", variant: "default" });
       fetchTokens();
@@ -54,11 +62,12 @@ export default function TokensPage() {
   }
 
   async function handleDisable(token: string) {
+    if (!current) return;
     try {
       const res = await fetch(`/api/admin/tokens/${encodeURIComponent(token)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ uses_allowed: 0 }),
+        body: JSON.stringify({ uses_allowed: 0, serverId: current.id }),
       });
       if (!res.ok) throw new Error("Failed to disable");
       toast({ title: "Token disabled" });
@@ -66,6 +75,13 @@ export default function TokensPage() {
     } catch {
       toast({ title: "Error", description: "Could not disable token.", variant: "destructive" });
     }
+  }
+
+  if (serverLoading) {
+    return <div className="flex items-center justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>;
+  }
+  if (!current) {
+    return <div className="flex flex-col items-center justify-center py-20 text-muted-foreground"><p>Select a homeserver to manage tokens.</p></div>;
   }
 
   function copyToken(token: string) {
@@ -100,6 +116,7 @@ export default function TokensPage() {
         <CreateTokenForm
           onCreated={() => { setShowCreate(false); fetchTokens(); }}
           onCancel={() => setShowCreate(false)}
+          serverId={current.id}
         />
       )}
 
@@ -159,7 +176,7 @@ export default function TokensPage() {
   );
 }
 
-function CreateTokenForm({ onCreated, onCancel }: { onCreated: () => void; onCancel: () => void }) {
+function CreateTokenForm({ onCreated, onCancel, serverId }: { onCreated: () => void; onCancel: () => void; serverId: string }) {
   const [customToken, setCustomToken] = useState("");
   const [length, setLength] = useState(16);
   const [usesAllowed, setUsesAllowed] = useState("1");
@@ -172,7 +189,7 @@ function CreateTokenForm({ onCreated, onCancel }: { onCreated: () => void; onCan
     e.preventDefault();
     setSubmitting(true);
 
-    const body: Record<string, unknown> = {};
+    const body: Record<string, unknown> = { serverId };
     if (customToken.trim()) {
       body.token = customToken.trim();
     } else {
