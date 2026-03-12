@@ -8,6 +8,8 @@ Invitation-code-based self-registration portal for Matrix Synapse homeservers.
 
 Provides an admin dashboard for managing registration tokens and a public registration page for invited users. Supports managing multiple Synapse homeservers from a single deployment.
 
+**[Documentation](https://riddix.github.io/regtokendashboard-synapse/)**
+
 ## Features
 
 - **Multi-Server Management** — add, configure, enable/disable, and monitor multiple Synapse homeservers from one dashboard; server context selector for scoped administration; admin token encryption at rest
