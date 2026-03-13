@@ -5,11 +5,13 @@ import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   ArrowLeft, Power, PowerOff, Trash2, Settings, Plus, X, Key,
-  CheckCircle2, XCircle, Loader2, Bot, Hash, ToggleLeft,
+  CheckCircle2, XCircle, Loader2, Bot, Hash, ToggleLeft, Search,
+  Zap, Users, AlertCircle,
 } from "lucide-react";
 
 interface BotDetail {
   id: string;
+  serverId: string;
   templateId: string;
   displayName: string;
   localpart: string | null;
@@ -30,6 +32,15 @@ interface BotFeatureDef {
   key: string;
   label: string;
   description: string;
+}
+
+interface SynapseRoom {
+  room_id: string;
+  name: string | null;
+  canonical_alias: string | null;
+  joined_members: number;
+  topic: string | null;
+  join_rules: string | null;
 }
 
 const ALL_FEATURES: BotFeatureDef[] = [
@@ -59,6 +70,18 @@ export default function BotDetailPage() {
   const [newRoomAlias, setNewRoomAlias] = useState("");
   const [tokenInput, setTokenInput] = useState("");
   const [configValues, setConfigValues] = useState<Record<string, unknown>>({});
+
+  // Provision token state
+  const [provisionLoading, setProvisionLoading] = useState(false);
+  const [provisionMsg, setProvisionMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Room picker state
+  const [synapseRooms, setSynapseRooms] = useState<SynapseRoom[]>([]);
+  const [roomsLoading, setRoomsLoading] = useState(false);
+  const [roomsLoaded, setRoomsLoaded] = useState(false);
+  const [roomSearch, setRoomSearch] = useState("");
+  const [roomsError, setRoomsError] = useState<string | null>(null);
+  const [showRoomDropdown, setShowRoomDropdown] = useState(false);
 
   const fetchBot = useCallback(async () => {
     const res = await fetch(`/api/admin/bots/${id}`);
@@ -97,6 +120,55 @@ export default function BotDetailPage() {
     setTokenInput("");
     await fetchBot();
     setActionLoading(false);
+  }
+
+  async function handleProvisionToken() {
+    if (!bot?.localpart) return;
+    if (!confirm(`This will create (or update) the Matrix user @${bot.localpart} on the homeserver and generate an access token. Continue?`)) return;
+    setProvisionLoading(true);
+    setProvisionMsg(null);
+    try {
+      const res = await fetch(`/api/admin/bots/${id}/provision-token`, { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        setProvisionMsg({ type: "success", text: `Token provisioned for ${data.matrixUserId}. The token is stored encrypted.` });
+        await fetchBot();
+      } else {
+        setProvisionMsg({ type: "error", text: data.error || "Failed to provision token" });
+      }
+    } catch (e) {
+      setProvisionMsg({ type: "error", text: e instanceof Error ? e.message : "Network error" });
+    }
+    setProvisionLoading(false);
+  }
+
+  async function fetchRooms(search?: string) {
+    if (!bot) return;
+    setRoomsLoading(true);
+    setRoomsError(null);
+    try {
+      const qp = new URLSearchParams({ serverId: bot.serverId });
+      if (search) qp.set("search", search);
+      qp.set("limit", "100");
+
+      const res = await fetch(`/api/admin/bots/rooms?${qp.toString()}`);
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.error || `Failed to load rooms (${res.status})`);
+      }
+      const data = await res.json();
+      setSynapseRooms(data.rooms ?? []);
+      setRoomsLoaded(true);
+    } catch (e) {
+      setRoomsError(e instanceof Error ? e.message : "Failed to load rooms");
+    }
+    setRoomsLoading(false);
+  }
+
+  function handleSelectRoom(room: SynapseRoom) {
+    setNewRoomId(room.room_id);
+    setNewRoomAlias(room.canonical_alias || "");
+    setShowRoomDropdown(false);
   }
 
   async function handleAssignRoom() {
@@ -237,11 +309,43 @@ export default function BotDetailPage() {
           <div className="p-4 rounded-lg border bg-muted/50 space-y-3">
             <h3 className="text-sm font-medium flex items-center gap-1.5"><Key className="w-4 h-4" /> Access Token</h3>
             <p className="text-xs text-muted-foreground">Set the bot&apos;s Matrix access token. The token is encrypted at rest and never displayed after being set.</p>
-            <div className="flex gap-2">
-              <input type="password" placeholder="syt_..." value={tokenInput} onChange={(e) => setTokenInput(e.target.value)} className="flex-1 rounded-md border bg-background px-3 py-2 text-sm" />
-              <Button size="sm" onClick={handleSetToken} disabled={actionLoading || !tokenInput}>
-                <Key className="w-4 h-4 mr-1" /> Set Token
-              </Button>
+
+            {bot.localpart && (
+              <div className="p-3 rounded-lg border border-primary/20 bg-primary/5 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-medium">Automatic Provisioning</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Create the bot user <code className="bg-muted px-1 py-0.5 rounded">@{bot.localpart}</code> on the homeserver and generate an access token automatically.
+                </p>
+                <Button size="sm" onClick={handleProvisionToken} disabled={provisionLoading || actionLoading}>
+                  {provisionLoading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Zap className="w-4 h-4 mr-1" />}
+                  Provision Token
+                </Button>
+                {provisionMsg && (
+                  <div className={`text-xs p-2 rounded ${provisionMsg.type === "success" ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300" : "bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400"}`}>
+                    {provisionMsg.text}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!bot.localpart && (
+              <div className="flex items-start gap-2 p-3 rounded-lg border border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-950">
+                <AlertCircle className="w-4 h-4 text-yellow-600 mt-0.5 shrink-0" />
+                <p className="text-xs text-yellow-800 dark:text-yellow-200">Set a localpart for this bot to enable automatic token provisioning.</p>
+              </div>
+            )}
+
+            <div className="border-t pt-3 space-y-2">
+              <p className="text-xs text-muted-foreground">Or paste an existing token manually:</p>
+              <div className="flex gap-2">
+                <input type="password" placeholder="syt_..." value={tokenInput} onChange={(e) => setTokenInput(e.target.value)} className="flex-1 rounded-md border bg-background px-3 py-2 text-sm" />
+                <Button size="sm" onClick={handleSetToken} disabled={actionLoading || !tokenInput}>
+                  <Key className="w-4 h-4 mr-1" /> Set Token
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -275,6 +379,100 @@ export default function BotDetailPage() {
 
           <div className="p-4 rounded-lg border bg-muted/50 space-y-3">
             <h3 className="text-sm font-medium">Assign to Room</h3>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => { if (!roomsLoaded) fetchRooms(); setShowRoomDropdown(!showRoomDropdown); }}
+                  disabled={roomsLoading}
+                >
+                  {roomsLoading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Search className="w-4 h-4 mr-1" />}
+                  {showRoomDropdown ? "Hide Rooms" : "Browse Rooms"}
+                </Button>
+                {roomsLoaded && <span className="text-xs text-muted-foreground">{synapseRooms.length} rooms loaded</span>}
+              </div>
+
+              {showRoomDropdown && (
+                <div className="border rounded-lg bg-background">
+                  <div className="p-2 border-b">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Search rooms..."
+                        value={roomSearch}
+                        onChange={(e) => setRoomSearch(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") fetchRooms(roomSearch); }}
+                        className="flex-1 rounded-md border bg-background px-3 py-1.5 text-sm"
+                      />
+                      <Button size="sm" variant="outline" onClick={() => fetchRooms(roomSearch)} disabled={roomsLoading}>
+                        <Search className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {roomsError && (
+                    <div className="p-3 text-xs text-red-500 bg-red-50 dark:bg-red-950">{roomsError}</div>
+                  )}
+
+                  <div className="max-h-64 overflow-y-auto">
+                    {synapseRooms.length === 0 && roomsLoaded && !roomsLoading && (
+                      <div className="p-4 text-center text-xs text-muted-foreground">No rooms found</div>
+                    )}
+                    {synapseRooms
+                      .filter((r) => {
+                        if (!roomSearch) return true;
+                        const q = roomSearch.toLowerCase();
+                        return (
+                          r.room_id.toLowerCase().includes(q) ||
+                          (r.name?.toLowerCase().includes(q) ?? false) ||
+                          (r.canonical_alias?.toLowerCase().includes(q) ?? false)
+                        );
+                      })
+                      .map((room) => {
+                        const alreadyAssigned = bot.rooms.some((r) => r.roomId === room.room_id);
+                        return (
+                          <button
+                            key={room.room_id}
+                            onClick={() => handleSelectRoom(room)}
+                            disabled={alreadyAssigned}
+                            className={`w-full text-left px-3 py-2 border-b last:border-b-0 transition-colors ${
+                              alreadyAssigned
+                                ? "opacity-50 cursor-not-allowed bg-muted/50"
+                                : "hover:bg-muted/50 cursor-pointer"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <Hash className="w-3 h-3 text-muted-foreground shrink-0" />
+                                  <span className="text-sm font-medium truncate">{room.name || room.room_id}</span>
+                                </div>
+                                <div className="flex items-center gap-2 mt-0.5 ml-5">
+                                  {room.canonical_alias && (
+                                    <span className="text-xs text-muted-foreground truncate">{room.canonical_alias}</span>
+                                  )}
+                                  <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+                                    <Users className="w-3 h-3" /> {room.joined_members}
+                                  </span>
+                                  {room.join_rules && (
+                                    <span className="text-xs px-1 py-0.5 rounded bg-muted text-muted-foreground">{room.join_rules}</span>
+                                  )}
+                                </div>
+                              </div>
+                              {alreadyAssigned && (
+                                <span className="text-xs text-muted-foreground shrink-0">assigned</span>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="grid gap-2 sm:grid-cols-2">
               <div>
                 <label className="text-xs font-medium">Room ID <span className="text-red-500">*</span></label>

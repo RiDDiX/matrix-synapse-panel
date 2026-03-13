@@ -18,6 +18,19 @@ export function adminRegistrationToken(token: string): string {
 
 export const ADMIN_REGISTRATION_TOKENS_NEW = "/_synapse/admin/v1/registration_tokens/new";
 
+// User management: https://element-hq.github.io/synapse/latest/admin_api/user_admin_api.html
+export function adminUserEndpoint(userId: string): string {
+  return `/_synapse/admin/v2/users/${encodeURIComponent(userId)}`;
+}
+
+// Login as user (returns access_token): https://element-hq.github.io/synapse/latest/admin_api/user_admin_api.html#login-as-a-user
+export function adminUserLogin(userId: string): string {
+  return `/_synapse/admin/v1/users/${encodeURIComponent(userId)}/login`;
+}
+
+// List rooms: https://element-hq.github.io/synapse/latest/admin_api/rooms.html
+export const ADMIN_ROOMS = "/_synapse/admin/v1/rooms";
+
 // --- Matrix Client-Server API (public) ---
 
 export const CLIENT_VERSIONS = "/_matrix/client/versions";

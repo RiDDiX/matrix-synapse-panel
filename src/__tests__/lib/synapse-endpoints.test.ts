@@ -3,6 +3,9 @@ import {
   ADMIN_REGISTRATION_TOKENS,
   ADMIN_REGISTRATION_TOKENS_NEW,
   adminRegistrationToken,
+  adminUserEndpoint,
+  adminUserLogin,
+  ADMIN_ROOMS,
   CLIENT_VERSIONS,
   CLIENT_REGISTER,
   clientTokenValidity,
@@ -27,13 +30,20 @@ describe("endpoint constants", () => {
     expect(CLIENT_REGISTER).toBe("/_matrix/client/v3/register");
   });
 
+  it("ADMIN_ROOMS is the official path", () => {
+    expect(ADMIN_ROOMS).toBe("/_synapse/admin/v1/rooms");
+  });
+
   it("no endpoint uses old /_matrix/client/.../admin paths", () => {
     const allPaths = [
       ADMIN_REGISTRATION_TOKENS,
       ADMIN_REGISTRATION_TOKENS_NEW,
+      ADMIN_ROOMS,
       CLIENT_VERSIONS,
       CLIENT_REGISTER,
       adminRegistrationToken("test"),
+      adminUserEndpoint("@bot:example.com"),
+      adminUserLogin("@bot:example.com"),
       clientTokenValidity("test"),
     ];
     for (const p of allPaths) {
@@ -145,16 +155,37 @@ describe("classifyFailure", () => {
   });
 });
 
+describe("adminUserEndpoint", () => {
+  it("builds correct path for a user ID", () => {
+    expect(adminUserEndpoint("@bot:example.com")).toBe("/_synapse/admin/v2/users/%40bot%3Aexample.com");
+  });
+
+  it("encodes special characters", () => {
+    const path = adminUserEndpoint("@my/bot:example.com");
+    expect(path).toContain("%2F");
+    expect(path).toMatch(/^\/\_synapse\/admin\/v2\/users\//);
+  });
+});
+
+describe("adminUserLogin", () => {
+  it("builds correct path for a user ID", () => {
+    expect(adminUserLogin("@bot:example.com")).toBe("/_synapse/admin/v1/users/%40bot%3Aexample.com/login");
+  });
+});
+
 describe("URL separation enforcement", () => {
   it("admin endpoints start with /_synapse/admin/", () => {
-    expect(ADMIN_REGISTRATION_TOKENS).toMatch(/^\/_synapse\/admin\//);
-    expect(ADMIN_REGISTRATION_TOKENS_NEW).toMatch(/^\/_synapse\/admin\//);
-    expect(adminRegistrationToken("test")).toMatch(/^\/_synapse\/admin\//);
+    expect(ADMIN_REGISTRATION_TOKENS).toMatch(/^\/\_synapse\/admin\//);
+    expect(ADMIN_REGISTRATION_TOKENS_NEW).toMatch(/^\/\_synapse\/admin\//);
+    expect(ADMIN_ROOMS).toMatch(/^\/\_synapse\/admin\//);
+    expect(adminRegistrationToken("test")).toMatch(/^\/\_synapse\/admin\//);
+    expect(adminUserEndpoint("@bot:example.com")).toMatch(/^\/\_synapse\/admin\//);
+    expect(adminUserLogin("@bot:example.com")).toMatch(/^\/\_synapse\/admin\//);
   });
 
   it("client endpoints start with /_matrix/client/", () => {
-    expect(CLIENT_VERSIONS).toMatch(/^\/_matrix\/client\//);
-    expect(CLIENT_REGISTER).toMatch(/^\/_matrix\/client\//);
-    expect(clientTokenValidity("test")).toMatch(/^\/_matrix\/client\//);
+    expect(CLIENT_VERSIONS).toMatch(/^\/\_matrix\/client\//);
+    expect(CLIENT_REGISTER).toMatch(/^\/\_matrix\/client\//);
+    expect(clientTokenValidity("test")).toMatch(/^\/\_matrix\/client\//);
   });
 });

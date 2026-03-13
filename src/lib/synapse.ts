@@ -9,6 +9,9 @@ import {
   ADMIN_REGISTRATION_TOKENS,
   ADMIN_REGISTRATION_TOKENS_NEW,
   adminRegistrationToken,
+  adminUserEndpoint,
+  adminUserLogin,
+  ADMIN_ROOMS,
   CLIENT_VERSIONS,
   CLIENT_REGISTER,
   clientTokenValidity,
@@ -321,6 +324,103 @@ function mapSynapseError(err: SynapseError): string {
     default:
       return err.error || "An unexpected error occurred.";
   }
+}
+
+// --- Bot user provisioning (Admin API) ---
+
+export interface SynapseUserInfo {
+  name: string;
+  displayname?: string;
+  admin?: boolean;
+  deactivated?: boolean;
+}
+
+/**
+ * Create or ensure a Synapse user exists via PUT /_synapse/admin/v2/users/{userId}.
+ * If the user already exists, it updates the display name only.
+ * Ref: https://element-hq.github.io/synapse/latest/admin_api/user_admin_api.html#create-or-modify-account
+ */
+export async function ensureBotUser(
+  userId: string,
+  displayName: string,
+  conn?: SynapseConnection
+): Promise<SynapseUserInfo> {
+  const c = conn ?? getDefaultConnection();
+  return synapseRequest<SynapseUserInfo>(
+    c.internalUrl,
+    adminUserEndpoint(userId),
+    {
+      method: "PUT",
+      headers: adminHeaders(c),
+      body: JSON.stringify({
+        displayname: displayName,
+        admin: false,
+        deactivated: false,
+      }),
+    }
+  );
+}
+
+/**
+ * Get an access token for a user via POST /_synapse/admin/v1/users/{userId}/login.
+ * Ref: https://element-hq.github.io/synapse/latest/admin_api/user_admin_api.html#login-as-a-user
+ */
+export async function loginAsUser(
+  userId: string,
+  conn?: SynapseConnection
+): Promise<string> {
+  const c = conn ?? getDefaultConnection();
+  const data = await synapseRequest<{ access_token: string }>(
+    c.internalUrl,
+    adminUserLogin(userId),
+    {
+      method: "POST",
+      headers: adminHeaders(c),
+      body: JSON.stringify({}),
+    }
+  );
+  return data.access_token;
+}
+
+// --- Room listing (Admin API) ---
+
+export interface SynapseRoom {
+  room_id: string;
+  name: string | null;
+  canonical_alias: string | null;
+  joined_members: number;
+  topic: string | null;
+  avatar: string | null;
+  join_rules: string | null;
+  guest_access: string | null;
+  room_type: string | null;
+}
+
+/**
+ * List rooms from Synapse via GET /_synapse/admin/v1/rooms.
+ * Supports pagination and search.
+ * Ref: https://element-hq.github.io/synapse/latest/admin_api/rooms.html
+ */
+export async function listRooms(
+  params: { limit?: number; from?: number; search_term?: string; order_by?: string; dir?: string } = {},
+  conn?: SynapseConnection
+): Promise<{ rooms: SynapseRoom[]; total_rooms: number; next_batch?: number }> {
+  const c = conn ?? getDefaultConnection();
+  const query = new URLSearchParams();
+  if (params.limit) query.set("limit", String(params.limit));
+  if (params.from !== undefined) query.set("from", String(params.from));
+  if (params.search_term) query.set("search_term", params.search_term);
+  if (params.order_by) query.set("order_by", params.order_by);
+  if (params.dir) query.set("dir", params.dir);
+
+  const qs = query.toString();
+  const path = qs ? `${ADMIN_ROOMS}?${qs}` : ADMIN_ROOMS;
+
+  return synapseRequest<{ rooms: SynapseRoom[]; total_rooms: number; next_batch?: number }>(
+    c.internalUrl,
+    path,
+    { method: "GET", headers: adminHeaders(c) }
+  );
 }
 
 // --- Diagnostics ---
