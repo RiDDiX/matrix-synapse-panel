@@ -6,8 +6,12 @@ import {
   adminUserEndpoint,
   adminUserLogin,
   ADMIN_ROOMS,
+  adminJoinRoom,
+  adminRoomMembers,
+  adminLeaveRoom,
   CLIENT_VERSIONS,
   CLIENT_REGISTER,
+  CLIENT_WHOAMI,
   clientTokenValidity,
   buildUrl,
   classifyFailure,
@@ -34,6 +38,10 @@ describe("endpoint constants", () => {
     expect(ADMIN_ROOMS).toBe("/_synapse/admin/v1/rooms");
   });
 
+  it("CLIENT_WHOAMI is the official path", () => {
+    expect(CLIENT_WHOAMI).toBe("/_matrix/client/v3/account/whoami");
+  });
+
   it("no endpoint uses old /_matrix/client/.../admin paths", () => {
     const allPaths = [
       ADMIN_REGISTRATION_TOKENS,
@@ -41,9 +49,13 @@ describe("endpoint constants", () => {
       ADMIN_ROOMS,
       CLIENT_VERSIONS,
       CLIENT_REGISTER,
+      CLIENT_WHOAMI,
       adminRegistrationToken("test"),
       adminUserEndpoint("@bot:example.com"),
       adminUserLogin("@bot:example.com"),
+      adminJoinRoom("!room:example.com"),
+      adminRoomMembers("!room:example.com"),
+      adminLeaveRoom("!room:example.com"),
       clientTokenValidity("test"),
     ];
     for (const p of allPaths) {
@@ -173,6 +185,28 @@ describe("adminUserLogin", () => {
   });
 });
 
+describe("adminJoinRoom", () => {
+  it("builds correct path for a room ID", () => {
+    expect(adminJoinRoom("!room:example.com")).toBe("/_synapse/admin/v1/join/!room%3Aexample.com");
+  });
+
+  it("builds correct path for a room alias", () => {
+    expect(adminJoinRoom("#general:example.com")).toBe("/_synapse/admin/v1/join/%23general%3Aexample.com");
+  });
+});
+
+describe("adminRoomMembers", () => {
+  it("builds correct path for a room ID", () => {
+    expect(adminRoomMembers("!room:example.com")).toBe("/_synapse/admin/v1/rooms/!room%3Aexample.com/members");
+  });
+});
+
+describe("adminLeaveRoom", () => {
+  it("builds correct path for a room ID", () => {
+    expect(adminLeaveRoom("!room:example.com")).toBe("/_synapse/admin/v1/leave/!room%3Aexample.com");
+  });
+});
+
 describe("URL separation enforcement", () => {
   it("admin endpoints start with /_synapse/admin/", () => {
     expect(ADMIN_REGISTRATION_TOKENS).toMatch(/^\/\_synapse\/admin\//);
@@ -181,11 +215,15 @@ describe("URL separation enforcement", () => {
     expect(adminRegistrationToken("test")).toMatch(/^\/\_synapse\/admin\//);
     expect(adminUserEndpoint("@bot:example.com")).toMatch(/^\/\_synapse\/admin\//);
     expect(adminUserLogin("@bot:example.com")).toMatch(/^\/\_synapse\/admin\//);
+    expect(adminJoinRoom("!room:example.com")).toMatch(/^\/\_synapse\/admin\//);
+    expect(adminRoomMembers("!room:example.com")).toMatch(/^\/\_synapse\/admin\//);
+    expect(adminLeaveRoom("!room:example.com")).toMatch(/^\/\_synapse\/admin\//);
   });
 
   it("client endpoints start with /_matrix/client/", () => {
     expect(CLIENT_VERSIONS).toMatch(/^\/\_matrix\/client\//);
     expect(CLIENT_REGISTER).toMatch(/^\/\_matrix\/client\//);
+    expect(CLIENT_WHOAMI).toMatch(/^\/\_matrix\/client\//);
     expect(clientTokenValidity("test")).toMatch(/^\/\_matrix\/client\//);
   });
 });

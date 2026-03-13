@@ -31,10 +31,27 @@ export function adminUserLogin(userId: string): string {
 // List rooms: https://element-hq.github.io/synapse/latest/admin_api/rooms.html
 export const ADMIN_ROOMS = "/_synapse/admin/v1/rooms";
 
+// Force-join a user to a room: https://element-hq.github.io/synapse/latest/admin_api/room_membership.html
+export function adminJoinRoom(roomIdOrAlias: string): string {
+  return `/_synapse/admin/v1/join/${encodeURIComponent(roomIdOrAlias)}`;
+}
+
+// Room members: https://element-hq.github.io/synapse/latest/admin_api/rooms.html#room-members-api
+export function adminRoomMembers(roomId: string): string {
+  return `/_synapse/admin/v1/rooms/${encodeURIComponent(roomId)}/members`;
+}
+
+// Make user leave room: https://element-hq.github.io/synapse/latest/admin_api/room_membership.html
+export const ADMIN_ROOM_LEAVE = "/_synapse/admin/v1/leave";
+export function adminLeaveRoom(roomIdOrAlias: string): string {
+  return `/_synapse/admin/v1/leave/${encodeURIComponent(roomIdOrAlias)}`;
+}
+
 // --- Matrix Client-Server API (public) ---
 
 export const CLIENT_VERSIONS = "/_matrix/client/versions";
 export const CLIENT_REGISTER = "/_matrix/client/v3/register";
+export const CLIENT_WHOAMI = "/_matrix/client/v3/account/whoami";
 
 export function clientTokenValidity(token: string): string {
   return `/_matrix/client/v1/register/m.login.registration_token/validity?token=${encodeURIComponent(token)}`;

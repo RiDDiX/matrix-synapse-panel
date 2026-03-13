@@ -123,6 +123,21 @@ export interface InstallResult {
   error?: string;
 }
 
+export interface BotHealthSnapshot {
+  ok: boolean;
+  displayName: string;
+  localpart: string | null;
+  matrixUserId: string | null;
+  enabled: boolean;
+  status: string;
+  hasToken: boolean;
+  tokenValid: boolean | null;
+  tokenUserId: string | null;
+  rooms: { roomId: string; roomAlias: string | null; assigned: boolean; joined: boolean }[];
+  errors: string[];
+  detail?: string;
+}
+
 export interface DiagnosticsSnapshot {
   synapseConnectivity: boolean;
   appserviceRegistrationOk: boolean;
@@ -133,7 +148,7 @@ export interface DiagnosticsSnapshot {
   envVarsPresent: string[];
   envVarsMissing: string[];
   integrationHealth: Record<string, IntegrationHealthResult>;
-  botHealth: Record<string, { ok: boolean; detail?: string }>;
+  botHealth: Record<string, BotHealthSnapshot>;
   errors: string[];
   checkedAt: string;
 }

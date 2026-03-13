@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   ArrowLeft, Power, PowerOff, Trash2, Settings, Plus, X, Key,
   CheckCircle2, XCircle, Loader2, Bot, Hash, ToggleLeft, Search,
-  Zap, Users, AlertCircle,
+  Zap, Users, AlertCircle, LogIn,
 } from "lucide-react";
 
 interface BotDetail {
@@ -196,6 +196,25 @@ export default function BotDetailPage() {
     setActionLoading(false);
   }
 
+  async function handleJoinRoom(roomId: string) {
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/admin/bots/${id}/rooms/join`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roomId }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        alert(data?.error || "Failed to join room");
+      }
+    } catch {
+      alert("Network error while joining room");
+    }
+    await fetchBot();
+    setActionLoading(false);
+  }
+
   async function handleToggleFeature(featureKey: string, enabled: boolean) {
     setActionLoading(true);
     await fetch(`/api/admin/bots/${id}/features`, {
@@ -369,9 +388,16 @@ export default function BotDetailPage() {
                       <XCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />
                     )}
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => handleUnassignRoom(room.roomId)} disabled={actionLoading} className="text-destructive hover:text-destructive">
-                    <X className="w-4 h-4" />
-                  </Button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {bot.localpart && (
+                      <Button variant="outline" size="sm" onClick={() => handleJoinRoom(room.roomId)} disabled={actionLoading} title="Force-join bot to this room">
+                        <LogIn className="w-3.5 h-3.5 mr-1" /> Join
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="sm" onClick={() => handleUnassignRoom(room.roomId)} disabled={actionLoading} className="text-destructive hover:text-destructive">
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>

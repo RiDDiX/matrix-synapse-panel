@@ -206,13 +206,114 @@ export async function setBotFeature(
   });
 }
 
-export async function getBotHealth(id: string): Promise<{ ok: boolean; detail?: string }> {
-  const bot = await db.botDefinition.findUnique({ where: { id } });
-  if (!bot) return { ok: false, detail: "Bot not found" };
-  if (!bot.enabled) return { ok: false, detail: "Bot is not activated" };
+export interface BotHealthResult {
+  ok: boolean;
+  displayName: string;
+  localpart: string | null;
+  matrixUserId: string | null;
+  enabled: boolean;
+  status: string;
+  hasToken: boolean;
+  tokenValid: boolean | null;
+  tokenUserId: string | null;
+  rooms: { roomId: string; roomAlias: string | null; assigned: boolean; joined: boolean }[];
+  errors: string[];
+  detail?: string;
+}
+
+export async function getBotHealth(id: string, conn?: { internalUrl: string; adminToken: string; serverName: string }): Promise<BotHealthResult> {
+  const bot = await db.botDefinition.findUnique({
+    where: { id },
+    include: { rooms: true },
+  });
+
+  if (!bot) {
+    return {
+      ok: false, displayName: "Unknown", localpart: null, matrixUserId: null,
+      enabled: false, status: "not_found", hasToken: false, tokenValid: null,
+      tokenUserId: null, rooms: [], errors: ["Bot not found"], detail: "Bot not found",
+    };
+  }
+
+  const hasToken = !!(bot.accessTokenEnc && bot.accessTokenIv && bot.accessTokenTag);
+  const matrixUserId = bot.localpart && conn?.serverName ? `@${bot.localpart}:${conn.serverName}` : (bot.matrixUserId ?? null);
+  const errors: string[] = [];
+
+  let tokenValid: boolean | null = null;
+  let tokenUserId: string | null = null;
+
+  if (!bot.enabled) {
+    errors.push("Bot is not activated");
+  }
+
+  if (!hasToken) {
+    errors.push("No access token configured");
+  } else if (conn) {
+    try {
+      const { whoami } = await import("@/lib/synapse");
+      const plainToken = decryptSecret(bot.accessTokenEnc!, bot.accessTokenIv!, bot.accessTokenTag!);
+      const identity = await whoami(plainToken, conn.internalUrl);
+      if (identity) {
+        tokenValid = true;
+        tokenUserId = identity.user_id;
+        if (matrixUserId && identity.user_id !== matrixUserId) {
+          errors.push(`Token user mismatch: token belongs to ${identity.user_id} but bot expects ${matrixUserId}`);
+        }
+      } else {
+        tokenValid = false;
+        errors.push("Access token is invalid or expired (whoami failed)");
+      }
+    } catch (e) {
+      errors.push(`Token validation failed: ${e instanceof Error ? e.message : "unknown error"}`);
+    }
+  }
+
+  const roomResults: BotHealthResult["rooms"] = [];
+  if (conn && matrixUserId) {
+    for (const room of bot.rooms) {
+      let joined = false;
+      try {
+        const { isUserInRoom } = await import("@/lib/synapse");
+        joined = await isUserInRoom(room.roomId, matrixUserId, conn);
+      } catch {
+        // membership check failed — treat as not joined
+      }
+      roomResults.push({
+        roomId: room.roomId,
+        roomAlias: room.roomAlias,
+        assigned: room.active,
+        joined,
+      });
+      if (room.active && !joined) {
+        errors.push(`Bot is not joined to room ${room.roomAlias || room.roomId}`);
+      }
+    }
+  } else {
+    for (const room of bot.rooms) {
+      roomResults.push({
+        roomId: room.roomId,
+        roomAlias: room.roomAlias,
+        assigned: room.active,
+        joined: false,
+      });
+    }
+  }
+
+  const allRoomsJoined = roomResults.length > 0 && roomResults.every((r) => !r.assigned || r.joined);
+  const isOk = bot.enabled && hasToken && (tokenValid ?? false) && allRoomsJoined;
 
   return {
-    ok: bot.status === "running",
-    detail: bot.statusDetail ?? (bot.status === "running" ? "Bot is running" : `Status: ${bot.status}`),
+    ok: isOk,
+    displayName: bot.displayName,
+    localpart: bot.localpart,
+    matrixUserId,
+    enabled: bot.enabled,
+    status: bot.status,
+    hasToken,
+    tokenValid,
+    tokenUserId,
+    rooms: roomResults,
+    errors,
+    detail: errors.length > 0 ? errors[0] : (isOk ? "Healthy" : "Unknown issue"),
   };
 }

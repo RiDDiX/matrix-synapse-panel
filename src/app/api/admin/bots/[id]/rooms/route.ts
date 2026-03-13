@@ -4,6 +4,8 @@ import { getBotById, assignBotToRoom, unassignBotFromRoom } from "@/lib/integrat
 import { botRoomAssignmentSchema } from "@/lib/validation";
 import { logAudit } from "@/lib/audit";
 import { getClientIp } from "@/lib/utils";
+import { getServerConnectionById } from "@/lib/servers";
+import { joinRoomAsUser, leaveRoomAsUser } from "@/lib/synapse";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -31,15 +33,32 @@ export async function POST(request: NextRequest, context: RouteContext) {
     parsed.data.config as Record<string, unknown> | undefined
   );
 
+  // Auto-join the bot to the room if localpart is configured
+  let joinError: string | null = null;
+  if (bot.localpart) {
+    try {
+      const conn = await getServerConnectionById(bot.serverId);
+      const userId = `@${bot.localpart}:${conn.serverName}`;
+      await joinRoomAsUser(parsed.data.roomId, userId, conn);
+    } catch (e) {
+      joinError = e instanceof Error ? e.message : "Failed to join room";
+    }
+  }
+
   await logAudit({
     action: "bot.room.assigned",
     actor: auth.email,
     target: id,
-    detail: `room: ${parsed.data.roomId}`,
+    detail: `room: ${parsed.data.roomId}${joinError ? ` (join failed: ${joinError})` : " (joined)"}`,
     ip: getClientIp(request),
+    serverId: bot.serverId,
   });
 
-  return NextResponse.json({ assignment }, { status: 201 });
+  return NextResponse.json({
+    assignment,
+    joined: !joinError,
+    joinError,
+  }, { status: 201 });
 }
 
 export async function DELETE(request: NextRequest, context: RouteContext) {
@@ -59,15 +78,28 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: "roomId is required" }, { status: 400 });
   }
 
+  // Make the bot leave the room if localpart is configured
+  let leaveError: string | null = null;
+  if (bot.localpart) {
+    try {
+      const conn = await getServerConnectionById(bot.serverId);
+      const userId = `@${bot.localpart}:${conn.serverName}`;
+      await leaveRoomAsUser(roomId, userId, conn);
+    } catch (e) {
+      leaveError = e instanceof Error ? e.message : "Failed to leave room";
+    }
+  }
+
   await unassignBotFromRoom(id, roomId);
 
   await logAudit({
     action: "bot.room.unassigned",
     actor: auth.email,
     target: id,
-    detail: `room: ${roomId}`,
+    detail: `room: ${roomId}${leaveError ? ` (leave failed: ${leaveError})` : " (left)"}`,
     ip: getClientIp(request),
+    serverId: bot.serverId,
   });
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: true, leaveError });
 }

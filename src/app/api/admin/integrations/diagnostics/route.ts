@@ -3,20 +3,47 @@ import { requireAdmin } from "@/lib/auth-guard";
 import { detectCapabilities } from "@/lib/integrations/environment";
 import { listInstalledIntegrations, checkIntegrationHealth } from "@/lib/integrations/engine";
 import { listBots, getBotHealth } from "@/lib/integrations/bots";
-import type { DiagnosticsSnapshot, IntegrationHealthResult } from "@/lib/integrations/types";
-import { getServerConnectionById } from "@/lib/servers";
+import type { DiagnosticsSnapshot, IntegrationHealthResult, BotHealthSnapshot } from "@/lib/integrations/types";
+import { getServerConnectionById, getDefaultServer } from "@/lib/servers";
 
 export async function GET(request: NextRequest) {
   const auth = await requireAdmin();
   if (auth instanceof NextResponse) return auth;
 
   const url = new URL(request.url);
-  const serverId = url.searchParams.get("serverId");
+  let serverId = url.searchParams.get("serverId");
+
+  // Fall back to default server if no serverId provided
   if (!serverId) {
-    return NextResponse.json({ error: "serverId is required" }, { status: 400 });
+    try {
+      const defaultServer = await getDefaultServer();
+      if (defaultServer) {
+        serverId = defaultServer.id;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  if (!serverId) {
+    return NextResponse.json({ error: "No server configured. Add a server first." }, { status: 400 });
   }
 
   const caps = await detectCapabilities();
+
+  let conn: { internalUrl: string; adminToken: string; serverName: string; publicUrl: string } | null = null;
+  let synapseConnectivity = false;
+  try {
+    conn = await getServerConnectionById(serverId);
+    const res = await fetch(`${conn.internalUrl}/_matrix/client/versions`, {
+      signal: AbortSignal.timeout(5000),
+      cache: "no-store",
+    });
+    synapseConnectivity = res.ok;
+  } catch {
+    // connectivity check failed
+  }
+
   const integrations = await listInstalledIntegrations(serverId);
   const bots = await listBots(serverId);
 
@@ -27,12 +54,10 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const botHealth: Record<string, { ok: boolean; detail?: string }> = {};
+  const botHealth: Record<string, BotHealthSnapshot> = {};
   for (const bot of bots) {
-    if (bot.enabled) {
-      const health = await getBotHealth(bot.id);
-      botHealth[bot.id] = health;
-    }
+    const health = await getBotHealth(bot.id, conn ?? undefined);
+    botHealth[bot.id] = health;
   }
 
   const requiredEnvVars = [
@@ -50,20 +75,6 @@ export async function GET(request: NextRequest) {
     } else {
       envVarsMissing.push(v);
     }
-  }
-
-  let synapseConnectivity = false;
-  try {
-    const conn = await getServerConnectionById(serverId);
-    if (conn) {
-      const res = await fetch(`${conn.internalUrl}/_matrix/client/versions`, {
-        signal: AbortSignal.timeout(5000),
-        cache: "no-store",
-      });
-      synapseConnectivity = res.ok;
-    }
-  } catch {
-    // connectivity check failed
   }
 
   const snapshot: DiagnosticsSnapshot = {

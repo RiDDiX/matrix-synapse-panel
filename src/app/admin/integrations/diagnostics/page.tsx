@@ -1,11 +1,34 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useServerContext } from "@/lib/server-context";
 import { Button } from "@/components/ui/button";
 import {
   RefreshCw, CheckCircle2, XCircle, AlertTriangle, Loader2, Server,
-  Container, FileKey, Shield, Bot, Puzzle,
+  Container, FileKey, Shield, Bot, Puzzle, Hash, Key, LogIn,
 } from "lucide-react";
+
+interface BotRoomHealth {
+  roomId: string;
+  roomAlias: string | null;
+  assigned: boolean;
+  joined: boolean;
+}
+
+interface BotHealthData {
+  ok: boolean;
+  displayName: string;
+  localpart: string | null;
+  matrixUserId: string | null;
+  enabled: boolean;
+  status: string;
+  hasToken: boolean;
+  tokenValid: boolean | null;
+  tokenUserId: string | null;
+  rooms: BotRoomHealth[];
+  errors: string[];
+  detail?: string;
+}
 
 interface DiagnosticsData {
   synapseConnectivity: boolean;
@@ -17,7 +40,7 @@ interface DiagnosticsData {
   envVarsPresent: string[];
   envVarsMissing: string[];
   integrationHealth: Record<string, { ok: boolean; status: string; detail?: string; checkedAt: string }>;
-  botHealth: Record<string, { ok: boolean; detail?: string }>;
+  botHealth: Record<string, BotHealthData>;
   errors: string[];
   checkedAt: string;
 }
@@ -31,23 +54,64 @@ function StatusBadge({ ok, label }: { ok: boolean; label: string }) {
   );
 }
 
+function TokenStatusBadge({ hasToken, tokenValid }: { hasToken: boolean; tokenValid: boolean | null }) {
+  if (!hasToken) {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300">
+        <XCircle className="w-3 h-3" /> No token
+      </span>
+    );
+  }
+  if (tokenValid === null) {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+        <Key className="w-3 h-3" /> Token set (not verified)
+      </span>
+    );
+  }
+  if (tokenValid) {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300">
+        <CheckCircle2 className="w-3 h-3" /> Token valid
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300">
+      <XCircle className="w-3 h-3" /> Token invalid
+    </span>
+  );
+}
+
 export default function IntegrationDiagnosticsPage() {
+  const { current } = useServerContext();
   const [data, setData] = useState<DiagnosticsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   async function fetchDiagnostics() {
     setLoading(true);
-    const res = await fetch("/api/admin/integrations/diagnostics");
-    if (res.ok) {
-      const json = await res.json();
-      setData(json.diagnostics);
+    setError(null);
+    try {
+      const params = current?.id ? `?serverId=${current.id}` : "";
+      const res = await fetch(`/api/admin/integrations/diagnostics${params}`);
+      if (res.ok) {
+        const json = await res.json();
+        setData(json.diagnostics);
+      } else {
+        const errData = await res.json().catch(() => null);
+        setError(errData?.error || `Failed to load diagnostics (${res.status})`);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Network error");
     }
     setLoading(false);
   }
 
   useEffect(() => {
     fetchDiagnostics();
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current?.id]);
 
   if (loading && !data) {
     return (
@@ -58,8 +122,20 @@ export default function IntegrationDiagnosticsPage() {
   }
 
   if (!data) {
-    return <p className="text-center text-muted-foreground py-12">Failed to load diagnostics.</p>;
+    return (
+      <div className="text-center py-12 space-y-3">
+        <AlertTriangle className="w-8 h-8 text-yellow-500 mx-auto" />
+        <p className="text-muted-foreground">{error || "Failed to load diagnostics."}</p>
+        <Button variant="outline" size="sm" onClick={fetchDiagnostics}>
+          <RefreshCw className="w-4 h-4 mr-1" /> Retry
+        </Button>
+      </div>
+    );
   }
+
+  const botEntries = Object.entries(data.botHealth);
+  const botsOk = botEntries.filter(([, h]) => h.ok).length;
+  const botsTotal = botEntries.length;
 
   return (
     <div className="space-y-6">
@@ -67,7 +143,7 @@ export default function IntegrationDiagnosticsPage() {
         <div>
           <h1 className="text-2xl font-bold">Integration Diagnostics</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            System health and capability checks for the integration platform.
+            System health, bot status, and capability checks.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={fetchDiagnostics} disabled={loading}>
@@ -177,25 +253,79 @@ export default function IntegrationDiagnosticsPage() {
         </div>
       )}
 
-      {Object.keys(data.botHealth).length > 0 && (
-        <div className="p-4 rounded-lg border bg-card space-y-3">
+      <div className="p-4 rounded-lg border bg-card space-y-4">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Bot className="w-4 h-4 text-muted-foreground" />
             <span className="text-sm font-medium">Bot Health</span>
           </div>
-          <div className="space-y-2">
-            {Object.entries(data.botHealth).map(([id, h]) => (
-              <div key={id} className="flex items-center justify-between p-2 rounded border bg-muted/50">
-                <div className="flex items-center gap-2">
-                  {h.ok ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> : <XCircle className="w-3.5 h-3.5 text-red-500" />}
-                  <span className="text-xs font-medium">{id.slice(0, 12)}...</span>
-                </div>
-                {h.detail && <span className="text-xs text-muted-foreground">{h.detail}</span>}
-              </div>
-            ))}
-          </div>
+          {botsTotal > 0 && (
+            <span className={`text-xs px-2 py-0.5 rounded-full ${botsOk === botsTotal ? "bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300" : "bg-yellow-100 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-300"}`}>
+              {botsOk}/{botsTotal} healthy
+            </span>
+          )}
         </div>
-      )}
+
+        {botsTotal === 0 && (
+          <p className="text-xs text-muted-foreground">No bots configured on this server.</p>
+        )}
+
+        {botEntries.map(([id, h]) => (
+          <div key={id} className={`p-3 rounded-lg border ${h.ok ? "border-green-500/20 bg-green-500/5" : h.enabled ? "border-red-500/20 bg-red-500/5" : "border-muted bg-muted/30"}`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 min-w-0">
+                {h.ok ? (
+                  <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                ) : h.enabled ? (
+                  <XCircle className="w-4 h-4 text-red-500 shrink-0" />
+                ) : (
+                  <AlertTriangle className="w-4 h-4 text-muted-foreground shrink-0" />
+                )}
+                <span className="text-sm font-medium truncate">{h.displayName}</span>
+                {h.matrixUserId && (
+                  <code className="text-xs text-muted-foreground truncate hidden sm:block">{h.matrixUserId}</code>
+                )}
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className={`text-xs px-1.5 py-0.5 rounded ${h.enabled ? (h.status === "running" ? "bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300" : "bg-yellow-100 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-300") : "bg-muted text-muted-foreground"}`}>
+                  {h.enabled ? h.status : "disabled"}
+                </span>
+                <TokenStatusBadge hasToken={h.hasToken} tokenValid={h.tokenValid} />
+              </div>
+            </div>
+
+            {h.rooms.length > 0 && (
+              <div className="mt-2 ml-6 space-y-1">
+                {h.rooms.map((room) => (
+                  <div key={room.roomId} className="flex items-center gap-2 text-xs">
+                    <Hash className="w-3 h-3 text-muted-foreground shrink-0" />
+                    <span className="truncate text-muted-foreground">{room.roomAlias || room.roomId}</span>
+                    {room.assigned && room.joined ? (
+                      <span className="inline-flex items-center gap-0.5 text-green-600 dark:text-green-400 shrink-0">
+                        <LogIn className="w-3 h-3" /> joined
+                      </span>
+                    ) : room.assigned ? (
+                      <span className="inline-flex items-center gap-0.5 text-red-600 dark:text-red-400 shrink-0">
+                        <XCircle className="w-3 h-3" /> not joined
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground shrink-0">inactive</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {h.errors.length > 0 && (
+              <div className="mt-2 ml-6 space-y-0.5">
+                {h.errors.map((err, i) => (
+                  <p key={i} className="text-xs text-red-600 dark:text-red-400">{err}</p>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
 
       {data.errors.length > 0 && (
         <div className="p-4 rounded-lg border border-red-500/30 bg-red-500/5 space-y-2">

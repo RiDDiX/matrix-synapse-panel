@@ -12,8 +12,12 @@ import {
   adminUserEndpoint,
   adminUserLogin,
   ADMIN_ROOMS,
+  adminJoinRoom,
+  adminRoomMembers,
+  adminLeaveRoom,
   CLIENT_VERSIONS,
   CLIENT_REGISTER,
+  CLIENT_WHOAMI,
   clientTokenValidity,
   buildUrl,
   classifyFailure,
@@ -421,6 +425,107 @@ export async function listRooms(
     path,
     { method: "GET", headers: adminHeaders(c) }
   );
+}
+
+// --- Room membership management (Admin API) ---
+
+/**
+ * Force-join a user to a room via POST /_synapse/admin/v1/join/{roomIdOrAlias}.
+ * Uses the admin token, not the bot's own token.
+ * Ref: https://element-hq.github.io/synapse/latest/admin_api/room_membership.html
+ */
+export async function joinRoomAsUser(
+  roomIdOrAlias: string,
+  userId: string,
+  conn?: SynapseConnection
+): Promise<{ room_id: string }> {
+  const c = conn ?? getDefaultConnection();
+  return synapseRequest<{ room_id: string }>(
+    c.internalUrl,
+    adminJoinRoom(roomIdOrAlias),
+    {
+      method: "POST",
+      headers: adminHeaders(c),
+      body: JSON.stringify({ user_id: userId }),
+    }
+  );
+}
+
+/**
+ * Make a user leave a room via POST /_synapse/admin/v1/leave/{roomIdOrAlias}.
+ * Ref: https://element-hq.github.io/synapse/latest/admin_api/room_membership.html
+ */
+export async function leaveRoomAsUser(
+  roomIdOrAlias: string,
+  userId: string,
+  conn?: SynapseConnection
+): Promise<void> {
+  const c = conn ?? getDefaultConnection();
+  await synapseRequest<Record<string, unknown>>(
+    c.internalUrl,
+    adminLeaveRoom(roomIdOrAlias),
+    {
+      method: "POST",
+      headers: adminHeaders(c),
+      body: JSON.stringify({ user_id: userId }),
+    }
+  );
+}
+
+/**
+ * Get members of a room via GET /_synapse/admin/v1/rooms/{roomId}/members.
+ * Ref: https://element-hq.github.io/synapse/latest/admin_api/rooms.html#room-members-api
+ */
+export async function getRoomMembers(
+  roomId: string,
+  conn?: SynapseConnection
+): Promise<{ members: string[]; total: number }> {
+  const c = conn ?? getDefaultConnection();
+  return synapseRequest<{ members: string[]; total: number }>(
+    c.internalUrl,
+    adminRoomMembers(roomId),
+    { method: "GET", headers: adminHeaders(c) }
+  );
+}
+
+/**
+ * Check if a specific user is a member of a room.
+ */
+export async function isUserInRoom(
+  roomId: string,
+  userId: string,
+  conn?: SynapseConnection
+): Promise<boolean> {
+  try {
+    const data = await getRoomMembers(roomId, conn);
+    return data.members.includes(userId);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Verify a bot's access token by calling GET /_matrix/client/v3/account/whoami.
+ * Uses the bot's own token, not the admin token.
+ * Ref: https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3accountwhoami
+ */
+export async function whoami(
+  botAccessToken: string,
+  baseUrl: string
+): Promise<{ user_id: string; device_id?: string } | null> {
+  try {
+    const res = await fetch(buildUrl(baseUrl, CLIENT_WHOAMI), {
+      headers: {
+        Authorization: `Bearer ${botAccessToken}`,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
 }
 
 // --- Diagnostics ---
