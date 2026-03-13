@@ -48,8 +48,8 @@ export default function LoginPage() {
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
             <Shield className="h-6 w-6 text-primary" />
           </div>
-          <CardTitle className="text-xl">RiDDiX Invite Portal</CardTitle>
-          <CardDescription>Sign in to manage invitation tokens</CardDescription>
+          <CardTitle className="text-xl">RiDDiX - Matrix Synapse Panel</CardTitle>
+          <CardDescription>Sign in to the administration panel</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">

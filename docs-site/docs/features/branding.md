@@ -5,7 +5,7 @@ title: Branding System
 
 # Branding System
 
-RiDDiX Matrix Control includes a full white-label branding system that lets you customize the public registration page for each server.
+RiDDiX - Matrix Synapse Panel includes a full white-label branding system that lets you customize the public registration page for each server.
 
 ## Overview
 

@@ -18,7 +18,7 @@ server {
     location / {
         include /config/nginx/proxy.conf;
         include /config/nginx/resolver.conf;
-        set $upstream_app riddix-invite-portal;
+        set $upstream_app matrix-synapse-panel;
         set $upstream_port 3000;
         set $upstream_proto http;
         proxy_pass $upstream_proto://$upstream_app:$upstream_port;
@@ -26,4 +26,4 @@ server {
 }
 ```
 
-Make sure the `riddix-invite-portal` container is on the same Docker network as SWAG.
+Make sure the `matrix-synapse-panel` container is on the same Docker network as SWAG.

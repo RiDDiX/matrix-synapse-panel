@@ -205,7 +205,7 @@ export async function loginWithPassword(
   baseUrl: string,
   userId: string,
   password: string,
-  deviceDisplayName = "RiDDiX Matrix Control"
+  deviceDisplayName = "RiDDiX - Matrix Synapse Panel"
 ): Promise<MatrixLoginResult> {
   return matrixRequest<MatrixLoginResult>(baseUrl, CLIENT_LOGIN, {
     method: "POST",

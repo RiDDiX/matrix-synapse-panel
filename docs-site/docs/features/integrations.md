@@ -5,7 +5,7 @@ title: Integration Platform
 
 # Integration Platform
 
-RiDDiX Matrix Control includes a platform for installing, configuring, and monitoring Matrix bridges and services.
+RiDDiX - Matrix Synapse Panel includes a platform for installing, configuring, and monitoring Matrix bridges and services.
 
 ## Overview
 

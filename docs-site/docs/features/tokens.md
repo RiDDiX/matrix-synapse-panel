@@ -5,7 +5,7 @@ title: Token Management
 
 # Token Management
 
-Registration tokens control who can create accounts on your Matrix homeserver. RiDDiX Matrix Control wraps the Synapse Admin API for full token lifecycle management.
+Registration tokens control who can create accounts on your Matrix homeserver. RiDDiX - Matrix Synapse Panel wraps the Synapse Admin API for full token lifecycle management.
 
 ## How It Works
 

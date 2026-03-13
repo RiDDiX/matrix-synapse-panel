@@ -5,7 +5,7 @@ title: Docker Setup
 
 # Quick Start with Docker
 
-The recommended way to deploy RiDDiX Matrix Control is with Docker Compose.
+The recommended way to deploy RiDDiX - Matrix Synapse Panel is with Docker Compose.
 
 ## Prerequisites
 
@@ -18,8 +18,8 @@ The recommended way to deploy RiDDiX Matrix Control is with Docker Compose.
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/RiDDiX/regtokendashboard-synapse.git
-cd regtokendashboard-synapse
+git clone https://github.com/RiDDiX/matrix-synapse-panel.git
+cd matrix-synapse-panel
 ```
 
 ### 2. Configure Environment
@@ -90,7 +90,7 @@ The default `docker-compose.yml`:
 services:
   app:
     build: .
-    container_name: riddix-invite-portal
+    container_name: matrix-synapse-panel
     restart: unless-stopped
     ports:
       - "127.0.0.1:3000:3000"
@@ -108,7 +108,7 @@ services:
 
   db:
     image: postgres:16-alpine
-    container_name: riddix-invite-portal-db
+    container_name: matrix-synapse-panel-db
     restart: unless-stopped
     env_file:
       - .env
@@ -159,7 +159,7 @@ services:
 networks:
   portal:
     external: true
-    name: regtokendashboard-synapse_portal
+    name: matrix-synapse-panel_portal
 ```
 
 Then use `http://synapse:8008` as the Internal URL when adding the server in the dashboard.

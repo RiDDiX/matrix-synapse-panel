@@ -6,7 +6,7 @@
 2. Configure:
    - **Domain**: `register.example.com`
    - **Scheme**: `http`
-   - **Forward Hostname/IP**: `riddix-invite-portal` (or the container IP)
+   - **Forward Hostname/IP**: `matrix-synapse-panel` (or the container IP)
    - **Forward Port**: `3000`
 3. Under the **SSL** tab, request a Let's Encrypt certificate
 4. Enable **Force SSL** and **HTTP/2 Support**

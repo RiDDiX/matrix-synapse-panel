@@ -5,7 +5,7 @@ title: Public Registration
 
 # Public Registration
 
-RiDDiX Matrix Control provides a branded public registration page where invited users can create their Matrix accounts using invitation tokens.
+RiDDiX - Matrix Synapse Panel provides a branded public registration page where invited users can create their Matrix accounts using invitation tokens.
 
 ## Registration Flow
 

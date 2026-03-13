@@ -5,7 +5,7 @@ title: Security
 
 # Security
 
-RiDDiX Matrix Control implements multiple layers of security to protect sensitive data and prevent unauthorized access.
+RiDDiX - Matrix Synapse Panel implements multiple layers of security to protect sensitive data and prevent unauthorized access.
 
 ## Encryption at Rest
 

@@ -5,7 +5,7 @@ title: Synapse Configuration
 
 # Synapse Configuration
 
-RiDDiX Matrix Control requires specific Synapse settings to function correctly.
+RiDDiX - Matrix Synapse Panel requires specific Synapse settings to function correctly.
 
 ## Required Synapse Settings
 

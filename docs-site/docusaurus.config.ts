@@ -3,8 +3,8 @@ import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 
 const config: Config = {
-  title: 'RiDDiX Matrix Control',
-  tagline: 'Multi-server administration platform for Matrix Synapse homeservers',
+  title: 'RiDDiX - Matrix Synapse Panel',
+  tagline: 'Multi-server administration panel for Matrix Synapse homeservers',
   favicon: 'img/favicon.ico',
 
   future: {
@@ -12,10 +12,10 @@ const config: Config = {
   },
 
   url: 'https://riddix.github.io',
-  baseUrl: '/regtokendashboard-synapse/',
+  baseUrl: '/matrix-synapse-panel/',
 
   organizationName: 'RiDDiX',
-  projectName: 'regtokendashboard-synapse',
+  projectName: 'matrix-synapse-panel',
 
   onBrokenLinks: 'throw',
 
@@ -32,7 +32,7 @@ const config: Config = {
           sidebarPath: './sidebars.ts',
           routeBasePath: 'docs',
           editUrl:
-            'https://github.com/RiDDiX/regtokendashboard-synapse/tree/alpha/docs-site/',
+            'https://github.com/RiDDiX/matrix-synapse-panel/tree/alpha/docs-site/',
         },
         blog: false,
         theme: {
@@ -49,9 +49,9 @@ const config: Config = {
       respectPrefersColorScheme: true,
     },
     navbar: {
-      title: 'RiDDiX Matrix Control',
+      title: 'RiDDiX - Matrix Synapse Panel',
       logo: {
-        alt: 'RiDDiX Matrix Control',
+        alt: 'RiDDiX - Matrix Synapse Panel',
         src: 'img/logo.png',
       },
       items: [
@@ -62,7 +62,7 @@ const config: Config = {
           label: 'Documentation',
         },
         {
-          href: 'https://github.com/RiDDiX/regtokendashboard-synapse',
+          href: 'https://github.com/RiDDiX/matrix-synapse-panel',
           label: 'GitHub',
           position: 'right',
         },
@@ -93,7 +93,7 @@ const config: Config = {
           items: [
             {
               label: 'GitHub',
-              href: 'https://github.com/RiDDiX/regtokendashboard-synapse',
+              href: 'https://github.com/RiDDiX/matrix-synapse-panel',
             },
           ],
         },

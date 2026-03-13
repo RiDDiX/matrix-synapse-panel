@@ -1,14 +1,14 @@
 <p align="center">
-  <img src="docs/RMS-Logo.png" alt="RiDDiX Matrix Control" width="400" />
+  <img src="docs/RMS-Logo.png" alt="RiDDiX - Matrix Synapse Panel" width="400" />
 </p>
 
-# RiDDiX Matrix Control
+# RiDDiX - Matrix Synapse Panel
 
-Invitation-code-based self-registration portal for Matrix Synapse homeservers.
+Multi-server administration panel for Matrix Synapse homeservers.
 
-Provides an admin dashboard for managing registration tokens and a public registration page for invited users. Supports managing multiple Synapse homeservers from a single deployment.
+Provides an admin dashboard for managing registration tokens, rooms, integrations, bots, branding, and a public registration page for invited users. Supports managing multiple Synapse homeservers from a single deployment.
 
-**[Documentation](https://riddix.github.io/regtokendashboard-synapse/)**
+**[Documentation](https://riddix.github.io/matrix-synapse-panel/)**
 
 ## Features
 
@@ -70,7 +70,7 @@ npm run dev
 
 | Variable | Required | Description |
 |---|---|---|
-| `APP_NAME` | No | Application display name (default: RiDDiX Invite Portal) |
+| `APP_NAME` | No | Application display name (default: RiDDiX - Matrix Synapse Panel) |
 | `APP_URL` | No | Public URL of the application |
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
 | `SESSION_SECRET` | Yes | Secret for iron-session + AES-256-GCM encryption (min 32 chars) |

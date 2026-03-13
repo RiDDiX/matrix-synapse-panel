@@ -5,7 +5,7 @@ title: Bot Platform
 
 # Bot Platform
 
-RiDDiX Matrix Control includes a bot management platform for creating, configuring, and managing Matrix bots from templates.
+RiDDiX - Matrix Synapse Panel includes a bot management platform for creating, configuring, and managing Matrix bots from templates.
 
 ## Overview
 

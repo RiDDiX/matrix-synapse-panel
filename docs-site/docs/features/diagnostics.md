@@ -5,7 +5,7 @@ title: Diagnostics
 
 # Diagnostics
 
-RiDDiX Matrix Control provides two levels of diagnostics: **Synapse connectivity checks** and **integration system diagnostics**.
+RiDDiX - Matrix Synapse Panel provides two levels of diagnostics: **Synapse connectivity checks** and **integration system diagnostics**.
 
 ## Synapse Diagnostics
 

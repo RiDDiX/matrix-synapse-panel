@@ -4,9 +4,9 @@ slug: /intro
 title: Introduction
 ---
 
-# RiDDiX Matrix Control
+# RiDDiX - Matrix Synapse Panel
 
-**RiDDiX Matrix Control** is a multi-server administration platform for [Matrix Synapse](https://github.com/element-hq/synapse) homeservers. It provides an admin dashboard for managing registration tokens and a branded public registration page for invited users.
+**RiDDiX - Matrix Synapse Panel** is a multi-server administration platform for [Matrix Synapse](https://github.com/element-hq/synapse) homeservers. It provides an admin dashboard for managing registration tokens and a branded public registration page for invited users.
 
 ## What It Does
 

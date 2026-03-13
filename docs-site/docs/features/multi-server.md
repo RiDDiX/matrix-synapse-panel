@@ -5,7 +5,7 @@ title: Multi-Server Management
 
 # Multi-Server Management
 
-RiDDiX Matrix Control can manage multiple Matrix Synapse homeservers from a single deployment. Each server has its own tokens, integrations, bots, and audit trail.
+RiDDiX - Matrix Synapse Panel can manage multiple Matrix Synapse homeservers from a single deployment. Each server has its own tokens, integrations, bots, and audit trail.
 
 ## Overview
 

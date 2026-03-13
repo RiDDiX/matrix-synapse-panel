@@ -117,7 +117,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
       <aside className="hidden w-64 flex-col border-r bg-sidebar md:flex">
         <div className="flex h-14 items-center gap-2 border-b px-4">
           <KeyRound className="h-5 w-5 text-sidebar-primary" />
-          <span className="font-semibold text-sidebar-foreground">RiDDiX Invite Portal</span>
+          <span className="font-semibold text-sidebar-foreground">RiDDiX - Matrix Synapse Panel</span>
         </div>
         <ServerSelector />
         <nav className="flex-1 space-y-1 p-3">
@@ -158,7 +158,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
 
       <div className="flex flex-1 flex-col">
         <header className="flex h-14 items-center justify-between border-b px-4 md:hidden">
-          <span className="font-semibold">RiDDiX Invite Portal</span>
+          <span className="font-semibold">RiDDiX - Matrix Synapse Panel</span>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
               {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}

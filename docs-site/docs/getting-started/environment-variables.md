@@ -20,7 +20,7 @@ All configuration is done via environment variables. In Docker deployments, thes
 
 | Variable | Default | Description |
 |---|---|---|
-| `APP_NAME` | `RiDDiX Invite Portal` | Application display name |
+| `APP_NAME` | `RiDDiX - Matrix Synapse Panel` | Application display name |
 | `APP_URL` | `http://localhost:3000` | Public URL of the application |
 | `RATE_LIMIT_WINDOW_MS` | `900000` | Rate limit window in milliseconds (15 min) |
 | `RATE_LIMIT_MAX_REQUESTS` | `15` | Maximum requests per rate limit window |

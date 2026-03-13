@@ -5,7 +5,7 @@ title: Architecture Overview
 
 # Architecture Overview
 
-RiDDiX Matrix Control is a Next.js 15 application using the App Router with server-side rendering and API routes.
+RiDDiX - Matrix Synapse Panel is a Next.js 15 application using the App Router with server-side rendering and API routes.
 
 ## High-Level Architecture
 

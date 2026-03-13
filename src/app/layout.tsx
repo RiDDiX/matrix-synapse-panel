@@ -7,8 +7,8 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "RiDDiX Invite Portal",
-  description: "Matrix Synapse invitation-based registration portal",
+  title: "RiDDiX - Matrix Synapse Panel",
+  description: "Multi-server administration panel for Matrix Synapse homeservers",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

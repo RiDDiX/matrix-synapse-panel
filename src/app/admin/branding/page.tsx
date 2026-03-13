@@ -460,7 +460,7 @@ function IdentityTab({
         <Input
           value={profile.appTitle ?? ""}
           onChange={(e) => onChange("appTitle", e.target.value)}
-          placeholder="RiDDiX Invite Portal"
+          placeholder="RiDDiX - Matrix Synapse Panel"
         />
       </FieldGroup>
       <FieldGroup label="Subtitle">
@@ -660,7 +660,7 @@ const SHADOW_MAP: Record<string, string> = {
 
 function BrandingPreview({ profile }: { profile: ProfileData }) {
   const d = {
-    appTitle: profile.appTitle || "RiDDiX Invite Portal",
+    appTitle: profile.appTitle || "RiDDiX - Matrix Synapse Panel",
     subtitle: profile.subtitle || "Create your account",
     welcomeHeadline: profile.welcomeHeadline || "Join the Network",
     registrationText: profile.registrationText || "Enter your invitation code to get started.",

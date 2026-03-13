@@ -5,7 +5,7 @@ title: Troubleshooting
 
 # Troubleshooting
 
-Common issues and solutions for RiDDiX Matrix Control.
+Common issues and solutions for RiDDiX - Matrix Synapse Panel.
 
 ## Installation & Startup
 
@@ -322,4 +322,4 @@ Note: Rate limits are in-memory and reset on application restart.
 1. Check the [Diagnostics](./features/diagnostics) page for automated health checks
 2. Review the [Audit Log](./features/audit-log) for recent errors
 3. Check container logs: `docker compose logs -f app`
-4. Open an issue on [GitHub](https://github.com/RiDDiX/regtokendashboard-synapse/issues)
+4. Open an issue on [GitHub](https://github.com/RiDDiX/matrix-synapse-panel/issues)

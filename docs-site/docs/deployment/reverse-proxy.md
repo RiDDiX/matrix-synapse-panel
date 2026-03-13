@@ -5,7 +5,7 @@ title: Reverse Proxy
 
 # Reverse Proxy Configuration
 
-RiDDiX Matrix Control binds to `127.0.0.1:3000` and should be served behind a reverse proxy with TLS termination.
+RiDDiX - Matrix Synapse Panel binds to `127.0.0.1:3000` and should be served behind a reverse proxy with TLS termination.
 
 ## Nginx
 

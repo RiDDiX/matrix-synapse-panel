@@ -19,8 +19,8 @@ This guide covers production deployment with Docker Compose.
 ### 1. Prepare the Environment
 
 ```bash
-git clone https://github.com/RiDDiX/regtokendashboard-synapse.git
-cd regtokendashboard-synapse
+git clone https://github.com/RiDDiX/matrix-synapse-panel.git
+cd matrix-synapse-panel
 cp .env.example .env
 ```
 
@@ -83,7 +83,7 @@ The default `docker-compose.yml` defines two services:
 services:
   app:
     build: .
-    container_name: riddix-invite-portal
+    container_name: matrix-synapse-panel
     restart: unless-stopped
     ports:
       - "127.0.0.1:3000:3000"
@@ -111,7 +111,7 @@ Key points:
 ```yaml
   db:
     image: postgres:16-alpine
-    container_name: riddix-invite-portal-db
+    container_name: matrix-synapse-panel-db
     restart: unless-stopped
     env_file:
       - .env
@@ -193,7 +193,7 @@ services:
 networks:
   portal:
     external: true
-    name: regtokendashboard-synapse_portal
+    name: matrix-synapse-panel_portal
 ```
 
 Then use `http://synapse:8008` as the Internal URL when adding the server.
@@ -227,5 +227,5 @@ docker compose exec -T db psql -U portal invite_portal < backup.sql
 The `uploads` volume contains branding assets. Back it up with:
 
 ```bash
-docker run --rm -v regtokendashboard-synapse_uploads:/data -v $(pwd):/backup alpine tar czf /backup/uploads.tar.gz /data
+docker run --rm -v matrix-synapse-panel_uploads:/data -v $(pwd):/backup alpine tar czf /backup/uploads.tar.gz /data
 ```

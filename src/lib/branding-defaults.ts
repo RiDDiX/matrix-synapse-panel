@@ -24,7 +24,7 @@ export interface BrandingDefaults {
 }
 
 export const BRANDING_DEFAULTS: BrandingDefaults = {
-  appTitle: "RiDDiX Invite Portal",
+  appTitle: "RiDDiX - Matrix Synapse Panel",
   subtitle: "Create your Matrix account with an invitation code",
   primaryColor: "#6366f1",
   secondaryColor: "#8b5cf6",

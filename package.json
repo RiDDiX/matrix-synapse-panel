@@ -1,8 +1,8 @@
 {
-  "name": "riddix-invite-portal",
+  "name": "matrix-synapse-panel",
   "version": "1.0.0",
   "private": true,
-  "description": "Invitation-code-based registration portal for Matrix Synapse",
+  "description": "Multi-server administration panel for Matrix Synapse homeservers",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

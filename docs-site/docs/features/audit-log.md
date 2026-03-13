@@ -5,7 +5,7 @@ title: Audit Log
 
 # Audit Log
 
-RiDDiX Matrix Control maintains a comprehensive audit trail for all administrative and registration activity.
+RiDDiX - Matrix Synapse Panel maintains a comprehensive audit trail for all administrative and registration activity.
 
 ## Overview
 

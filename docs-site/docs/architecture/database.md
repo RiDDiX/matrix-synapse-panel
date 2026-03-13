@@ -5,7 +5,7 @@ title: Database Schema
 
 # Database Schema
 
-RiDDiX Matrix Control uses PostgreSQL with Prisma ORM. All table and column names use `snake_case` mapping.
+RiDDiX - Matrix Synapse Panel uses PostgreSQL with Prisma ORM. All table and column names use `snake_case` mapping.
 
 ## Entity Relationship Diagram
 

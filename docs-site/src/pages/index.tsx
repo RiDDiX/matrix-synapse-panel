@@ -10,7 +10,7 @@ function HomepageHeader() {
   return (
     <header className={clsx('hero hero--primary', styles.heroBanner)}>
       <div className="container">
-        <img src="img/logo.png" alt="RiDDiX Matrix Control" style={{maxWidth: 320, marginBottom: 24}} />
+        <img src="img/logo.png" alt="RiDDiX - Matrix Synapse Panel" style={{maxWidth: 320, marginBottom: 24}} />
         <h1 className="hero__title">{siteConfig.title}</h1>
         <p className="hero__subtitle">{siteConfig.tagline}</p>
         <div className={styles.buttons}>

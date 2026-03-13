@@ -149,7 +149,7 @@ Returns the currently published branding configuration with defaults applied for
 ```json
 {
   "branding": {
-    "appTitle": "RiDDiX Invite Portal",
+    "appTitle": "RiDDiX - Matrix Synapse Panel",
     "subtitle": "Create your Matrix account",
     "logoUrl": "/api/branding/assets/clx...",
     "primaryColor": "#6366f1",

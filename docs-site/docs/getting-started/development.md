@@ -5,7 +5,7 @@ title: Development Setup
 
 # Development Setup
 
-Run RiDDiX Matrix Control locally for development.
+Run RiDDiX - Matrix Synapse Panel locally for development.
 
 ## Prerequisites
 
@@ -18,8 +18,8 @@ Run RiDDiX Matrix Control locally for development.
 ### 1. Clone and Install
 
 ```bash
-git clone https://github.com/RiDDiX/regtokendashboard-synapse.git
-cd regtokendashboard-synapse
+git clone https://github.com/RiDDiX/matrix-synapse-panel.git
+cd matrix-synapse-panel
 npm install
 ```
 
