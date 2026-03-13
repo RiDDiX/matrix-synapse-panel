@@ -2,11 +2,25 @@ import type { CatalogEntry, IntegrationType } from "../types";
 import { whatsappBridge } from "./bridges/whatsapp";
 import { signalBridge } from "./bridges/signal";
 import { telegramBridge } from "./bridges/telegram";
+import { slackBridge } from "./bridges/slack";
+import { discordBridge } from "./bridges/discord";
+import { gmessagesBridge } from "./bridges/gmessages";
+import { metaBridge } from "./bridges/meta";
+import { googlechatBridge } from "./bridges/googlechat";
+import { ircBridge } from "./bridges/irc";
+import { twitterBridge } from "./bridges/twitter";
 
 const ALL_ENTRIES: CatalogEntry[] = [
   whatsappBridge,
   signalBridge,
   telegramBridge,
+  slackBridge,
+  discordBridge,
+  gmessagesBridge,
+  metaBridge,
+  googlechatBridge,
+  ircBridge,
+  twitterBridge,
 ];
 
 export function getCatalog(): CatalogEntry[] {
