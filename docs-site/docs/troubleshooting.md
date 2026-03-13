@@ -73,15 +73,37 @@ openssl rand -hex 32
 
 ---
 
+### Admin token endpoint returns 404 from nginx
+
+**Error:** Diagnostics show "Admin API check failed" with an HTML 404 page from nginx.
+
+**Root cause:** The Internal URL points to a public reverse proxy that does not forward `/_synapse/admin/*` paths to Synapse. This is normal — most reverse proxy setups intentionally block admin API access from the public internet.
+
+**Fix:** Set the Internal URL to the **direct Synapse address**, not the public URL:
+- Docker same network: `http://synapse:8008`
+- Same host: `http://localhost:8008`
+- By IP: `http://192.168.1.50:8008`
+
+**Verify from inside the container:**
+```bash
+curl -i http://synapse:8008/_synapse/admin/v1/registration_tokens \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN"
+```
+
+If this returns JSON, use that URL as Internal URL. If it returns an HTML page, you're still hitting a proxy.
+
+---
+
 ### "Admin API not reachable" or 401 errors
 
 **Causes:**
 - Invalid admin access token
 - Token belongs to a non-admin user
 - Token has been invalidated
+- Internal URL is wrong
 
 **Solutions:**
-1. Verify the token works directly:
+1. Verify the token works directly against the **internal** Synapse URL:
    ```bash
    curl -H "Authorization: Bearer YOUR_TOKEN" \
      http://synapse:8008/_synapse/admin/v1/registration_tokens
@@ -93,6 +115,7 @@ openssl rand -hex 32
    ```
    The response should show `"admin": true`.
 3. Generate a new token and rotate it in Admin → Servers → [Server] → Rotate Token
+4. Ensure Internal URL points to Synapse directly (not through a reverse proxy)
 
 ---
 

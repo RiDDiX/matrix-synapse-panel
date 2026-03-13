@@ -83,14 +83,65 @@ After adding a server, use the **Diagnostics** page (Admin → Diagnostics) to v
 4. **Registration Flow Available** — `m.login.registration_token` appears in the UIA flows
 5. **No MSC3861 Detected** — delegated auth is not enabled
 
-## Network Considerations
+## Internal URL vs Public URL
 
-The portal connects to Synapse via the **Internal URL** (not the public URL). This should be a URL reachable from the portal container:
+The portal uses **two separate URLs** per managed server:
 
-| Setup | Internal URL Example |
-|---|---|
-| Same Docker network | `http://synapse:8008` |
-| Same host, different compose | `http://host.docker.internal:8008` |
-| Remote server | `https://synapse-internal.example.com:8448` |
+| URL | Purpose | Used for |
+|---|---|---|
+| **Internal URL** | Direct Synapse access | Admin API calls (`/_synapse/admin/*`), token management, diagnostics |
+| **Public URL** | User-facing references | Registration page links, client references |
 
-The **Public URL** is shown to users after registration (e.g., `https://matrix.example.com`) and is not used for API calls.
+:::danger Critical: Internal URL must reach Synapse directly
+The Internal URL must point to the **Synapse process itself**, not to a public reverse proxy. Most reverse proxies intentionally do not forward `/_synapse/admin/*` paths — this is correct security practice, but it means the portal cannot use the public URL for admin operations.
+
+**Symptom:** Diagnostics show "Synapse reachable" but "Admin token endpoint returned 404" with an HTML error page from nginx.
+
+**Fix:** Set the Internal URL to the direct Synapse address (e.g. `http://synapse:8008`).
+:::
+
+### Network Examples
+
+| Setup | Internal URL | Public URL |
+|---|---|---|
+| Same Docker network | `http://synapse:8008` | `https://matrix.example.com` |
+| Same host, different compose | `http://host.docker.internal:8008` | `https://matrix.example.com` |
+| unRAID / container by IP | `http://192.168.1.50:8008` | `https://matrix.example.com` |
+| Native install on same host | `http://localhost:8008` | `https://matrix.example.com` |
+| Remote server (admin exposed) | `https://synapse-internal.example.com:8448` | `https://matrix.example.com` |
+
+### Verifying the Internal URL
+
+Test admin API access directly from the portal container:
+
+```bash
+# From within the portal container (or same Docker network):
+curl -i http://synapse:8008/_synapse/admin/v1/registration_tokens \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN"
+```
+
+If this returns a JSON array of tokens, the Internal URL is correct. If it returns an HTML 404 page from nginx, you are hitting a reverse proxy instead of Synapse.
+
+### API Families and URL Mapping
+
+| API | Base URL | Endpoints |
+|---|---|---|
+| **Synapse Admin API** | Internal URL only | `GET/POST/PUT/DELETE /_synapse/admin/v1/registration_tokens[/*]` |
+| **Client-Server API** | Internal URL | `POST /_matrix/client/v3/register`, `GET /_matrix/client/versions` |
+| **Token Validity** | Internal URL | `GET /_matrix/client/v1/register/m.login.registration_token/validity` |
+
+All admin operations use `/_synapse/admin/v1/*` — these are **Synapse-specific** endpoints (not part of the Matrix spec) and are only available on direct Synapse access.
+
+## Verifying Your Setup
+
+After adding a server, use the **Diagnostics** tab (Admin → Servers → [Server] → Diagnostics) to verify:
+
+1. **Synapse Reachable** — the portal can connect to the Synapse Client-Server API
+2. **Admin API Reachable** — the `/_synapse/admin/*` endpoints respond (not blocked by proxy)
+3. **Token Endpoints Available** — the registration token admin endpoint returns 200 with valid auth
+4. **Registration Flow Available** — `m.login.registration_token` appears in the UIA flows
+5. **Token Registration Supported** — the correct auth stage is present
+6. **No MSC3861 Detected** — delegated auth is not enabled
+7. **Registration Enabled** — Synapse allows registration
+
+If Admin API shows a failure with class `proxy_not_forwarded`, the Internal URL is pointing at a reverse proxy. Change it to the direct Synapse address.

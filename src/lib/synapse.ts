@@ -5,6 +5,16 @@ import type {
   RegistrationResult,
   DiagnosticsResult,
 } from "./types";
+import {
+  ADMIN_REGISTRATION_TOKENS,
+  ADMIN_REGISTRATION_TOKENS_NEW,
+  adminRegistrationToken,
+  CLIENT_VERSIONS,
+  CLIENT_REGISTER,
+  clientTokenValidity,
+  buildUrl,
+  classifyFailure,
+} from "./synapse-endpoints";
 
 export interface SynapseConnection {
   internalUrl: string;
@@ -65,7 +75,7 @@ export async function listTokens(conn?: SynapseConnection): Promise<SynapseRegis
   const c = conn ?? getDefaultConnection();
   const data = await synapseRequest<{ registration_tokens: SynapseRegistrationToken[] }>(
     c.internalUrl,
-    "/_synapse/admin/v1/registration_tokens",
+    ADMIN_REGISTRATION_TOKENS,
     { method: "GET", headers: adminHeaders(c) }
   );
   return data.registration_tokens;
@@ -75,7 +85,7 @@ export async function getToken(token: string, conn?: SynapseConnection): Promise
   const c = conn ?? getDefaultConnection();
   return synapseRequest<SynapseRegistrationToken>(
     c.internalUrl,
-    `/_synapse/admin/v1/registration_tokens/${encodeURIComponent(token)}`,
+    adminRegistrationToken(token),
     { method: "GET", headers: adminHeaders(c) }
   );
 }
@@ -89,7 +99,7 @@ export async function createToken(params: {
   const c = conn ?? getDefaultConnection();
   return synapseRequest<SynapseRegistrationToken>(
     c.internalUrl,
-    "/_synapse/admin/v1/registration_tokens/new",
+    ADMIN_REGISTRATION_TOKENS_NEW,
     {
       method: "POST",
       headers: adminHeaders(c),
@@ -106,7 +116,7 @@ export async function updateToken(
   const c = conn ?? getDefaultConnection();
   return synapseRequest<SynapseRegistrationToken>(
     c.internalUrl,
-    `/_synapse/admin/v1/registration_tokens/${encodeURIComponent(token)}`,
+    adminRegistrationToken(token),
     {
       method: "PUT",
       headers: adminHeaders(c),
@@ -119,7 +129,7 @@ export async function deleteToken(token: string, conn?: SynapseConnection): Prom
   const c = conn ?? getDefaultConnection();
   await synapseRequest<Record<string, never>>(
     c.internalUrl,
-    `/_synapse/admin/v1/registration_tokens/${encodeURIComponent(token)}`,
+    adminRegistrationToken(token),
     { method: "DELETE", headers: adminHeaders(c) }
   );
 }
@@ -128,7 +138,7 @@ export async function deleteToken(token: string, conn?: SynapseConnection): Prom
 
 export async function validateToken(token: string, conn?: SynapseConnection): Promise<boolean> {
   const c = conn ?? getDefaultConnection();
-  const url = `${c.internalUrl}/_matrix/client/v1/register/m.login.registration_token/validity?token=${encodeURIComponent(token)}`;
+  const url = buildUrl(c.internalUrl, clientTokenValidity(token));
   const res = await fetch(url, {
     method: "GET",
     cache: "no-store",
@@ -317,6 +327,8 @@ function mapSynapseError(err: SynapseError): string {
 
 export async function runDiagnostics(conn?: SynapseConnection, serverName?: string): Promise<DiagnosticsResult> {
   const c = conn ?? getDefaultConnection();
+  const baseUrl = c.internalUrl;
+
   const result: DiagnosticsResult = {
     synapseReachable: false,
     adminApiReachable: false,
@@ -326,14 +338,14 @@ export async function runDiagnostics(conn?: SynapseConnection, serverName?: stri
     registrationEnabled: null,
     tokenRegistrationSupported: false,
     msc3861Detected: false,
+    adminApiBaseUrl: baseUrl,
+    adminApiFailureClass: null,
     errors: [],
   };
 
-  const baseUrl = c.internalUrl;
-
-  // Check basic reachability
+  // 1. Check basic reachability via Client-Server API
   try {
-    const versionRes = await fetch(`${baseUrl}/_matrix/client/versions`, { cache: "no-store" });
+    const versionRes = await fetch(buildUrl(baseUrl, CLIENT_VERSIONS), { cache: "no-store" });
     result.synapseReachable = versionRes.ok;
     if (!versionRes.ok) {
       result.errors.push(`Synapse version endpoint returned ${versionRes.status}`);
@@ -343,25 +355,42 @@ export async function runDiagnostics(conn?: SynapseConnection, serverName?: stri
     return result;
   }
 
-  // Check admin API
+  // 2. Check admin API reachability (registration token list endpoint)
   try {
-    const tokensRes = await fetch(`${baseUrl}/_synapse/admin/v1/registration_tokens`, {
+    const adminUrl = buildUrl(baseUrl, ADMIN_REGISTRATION_TOKENS);
+    const tokensRes = await fetch(adminUrl, {
       headers: adminHeaders(c),
       cache: "no-store",
     });
-    result.adminApiReachable = tokensRes.status !== 502 && tokensRes.status !== 503;
-    result.tokenEndpointsAvailable = tokensRes.ok;
-    if (!tokensRes.ok) {
+
+    if (tokensRes.ok) {
+      result.adminApiReachable = true;
+      result.tokenEndpointsAvailable = true;
+    } else {
       const body = await tokensRes.text();
-      result.errors.push(`Admin token endpoint returned ${tokensRes.status}: ${body.slice(0, 200)}`);
+      const classification = classifyFailure(tokensRes.status, body);
+      result.adminApiFailureClass = classification.failureClass;
+
+      // Admin API is "reachable" if Synapse itself responded (not a proxy intercept)
+      result.adminApiReachable = classification.failureClass !== "proxy_not_forwarded" &&
+        classification.failureClass !== "network_error";
+      result.tokenEndpointsAvailable = false;
+
+      result.errors.push(
+        `Admin API check failed (${ADMIN_REGISTRATION_TOKENS} via ${baseUrl}): ${classification.message}`
+      );
     }
   } catch (e) {
-    result.errors.push(`Admin API check failed: ${e instanceof Error ? e.message : "unknown error"}`);
+    result.adminApiFailureClass = "network_error";
+    result.errors.push(
+      `Admin API unreachable at ${baseUrl}: ${e instanceof Error ? e.message : "unknown error"}. ` +
+      "Verify the Internal URL is correct and the Synapse process is running."
+    );
   }
 
-  // Check registration flow
+  // 3. Check registration flow (Client-Server API)
   try {
-    const regRes = await fetch(`${baseUrl}/_matrix/client/v3/register`, {
+    const regRes = await fetch(buildUrl(baseUrl, CLIENT_REGISTER), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
@@ -369,7 +398,15 @@ export async function runDiagnostics(conn?: SynapseConnection, serverName?: stri
     });
 
     if (regRes.status === 401) {
-      const uia = (await regRes.json()) as UiaResponse;
+      // 401 from /register is expected — Synapse returns UIA challenge
+      let uia: UiaResponse;
+      try {
+        uia = (await regRes.json()) as UiaResponse;
+      } catch {
+        result.errors.push("Registration endpoint returned 401 but the response was not valid JSON (UIA).");
+        return result;
+      }
+
       const flows = uia.flows ?? [];
       result.registrationFlowAvailable = flows.length > 0;
       result.registrationEnabled = true;

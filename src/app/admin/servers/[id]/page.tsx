@@ -47,6 +47,8 @@ interface DiagResult {
   registrationEnabled: boolean | null;
   tokenRegistrationSupported: boolean;
   msc3861Detected: boolean;
+  adminApiBaseUrl: string | null;
+  adminApiFailureClass: string | null;
   errors: string[];
 }
 
@@ -283,6 +285,19 @@ export default function ServerDetailPage() {
               {diagCheck(diag.tokenRegistrationSupported, "Token registration supported")}
               {diagCheck(!diag.msc3861Detected, "No MSC3861/OIDC conflict")}
               {diagCheck(diag.registrationEnabled, "Registration enabled")}
+
+              {diag.adminApiBaseUrl && (
+                <div className="mt-2 text-xs text-muted-foreground">
+                  Admin API base URL: <code className="bg-muted px-1 py-0.5 rounded">{diag.adminApiBaseUrl}</code>
+                </div>
+              )}
+
+              {diag.adminApiFailureClass === "proxy_not_forwarded" && (
+                <div className="mt-2 p-3 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded text-sm text-yellow-800 dark:text-yellow-200">
+                  <strong>Likely cause:</strong> The Internal URL points to a reverse proxy that does not forward <code>/_synapse/admin/*</code> paths.
+                  Set the Internal URL to the direct Synapse address (e.g. <code>http://synapse:8008</code>).
+                </div>
+              )}
 
               {diag.errors.length > 0 && (
                 <div className="mt-3 space-y-1">

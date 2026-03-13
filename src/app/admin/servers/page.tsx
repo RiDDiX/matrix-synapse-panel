@@ -171,6 +171,7 @@ export default function ServersPage() {
                 placeholder="http://synapse:8008"
                 required
               />
+              <p className="text-xs text-muted-foreground mt-1">Direct Synapse address for Admin API calls. Must not go through a reverse proxy that blocks <code>/_synapse/admin/*</code>.</p>
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Public URL</label>
@@ -181,6 +182,7 @@ export default function ServersPage() {
                 placeholder="https://matrix.example.com"
                 required
               />
+              <p className="text-xs text-muted-foreground mt-1">Public-facing URL shown to users for registration and client references.</p>
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Admin API Token</label>

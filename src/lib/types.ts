@@ -59,6 +59,8 @@ export interface DiagnosticsResult {
   registrationEnabled: boolean | null;
   tokenRegistrationSupported: boolean;
   msc3861Detected: boolean;
+  adminApiBaseUrl: string | null;
+  adminApiFailureClass: string | null;
   errors: string[];
 }
 
