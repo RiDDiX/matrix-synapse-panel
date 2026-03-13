@@ -5,13 +5,14 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
-import { LayoutDashboard, KeyRound, ScrollText, Activity, Paintbrush, Puzzle, Bot, Stethoscope, Server, LogOut, Moon, Sun, ChevronDown } from "lucide-react";
+import { LayoutDashboard, KeyRound, ScrollText, Activity, Paintbrush, Puzzle, Bot, Stethoscope, Server, Users, LogOut, Moon, Sun, ChevronDown } from "lucide-react";
 import { useTheme } from "next-themes";
 import { ServerProvider, useServerContext } from "@/lib/server-context";
 
 const navItems = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard },
   { href: "/admin/servers", label: "Servers", icon: Server },
+  { href: "/admin/users", label: "User Control", icon: Users },
   { href: "/admin/tokens", label: "Tokens", icon: KeyRound },
   { href: "/admin/integrations", label: "Integrations", icon: Puzzle },
   { href: "/admin/bots", label: "Bots", icon: Bot },

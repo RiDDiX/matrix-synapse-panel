@@ -28,6 +28,14 @@ export function adminUserLogin(userId: string): string {
   return `/_synapse/admin/v1/users/${encodeURIComponent(userId)}/login`;
 }
 
+// List users: https://element-hq.github.io/synapse/latest/admin_api/user_admin_api.html#list-accounts
+export const ADMIN_USERS = "/_synapse/admin/v2/users";
+
+// Deactivate user: https://element-hq.github.io/synapse/latest/admin_api/user_admin_api.html#deactivate-account
+export function adminDeactivateUser(userId: string): string {
+  return `/_synapse/admin/v1/deactivate/${encodeURIComponent(userId)}`;
+}
+
 // List rooms: https://element-hq.github.io/synapse/latest/admin_api/rooms.html
 export const ADMIN_ROOMS = "/_synapse/admin/v1/rooms";
 

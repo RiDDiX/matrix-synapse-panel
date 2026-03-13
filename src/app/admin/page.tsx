@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { KeyRound, CheckCircle2, Clock, XCircle, Ban, UserPlus } from "lucide-react";
+import {
+  KeyRound, CheckCircle2, Clock, XCircle, Ban, UserPlus,
+  Users, Bot, Puzzle, Activity,
+} from "lucide-react";
 import { useServerContext } from "@/lib/server-context";
 import type { DashboardStats } from "@/lib/types";
 
@@ -60,7 +63,7 @@ export default function OverviewPage() {
     );
   }
 
-  const cards = [
+  const tokenCards = [
     { label: "Total Tokens", value: stats.totalTokens, icon: KeyRound, color: "text-blue-600 dark:text-blue-400" },
     { label: "Valid", value: stats.validTokens, icon: CheckCircle2, color: "text-emerald-600 dark:text-emerald-400" },
     { label: "Expired", value: stats.expiredTokens, icon: Clock, color: "text-amber-600 dark:text-amber-400" },
@@ -73,21 +76,78 @@ export default function OverviewPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Overview</h1>
-        <p className="text-muted-foreground">Invitation token statistics and recent activity.</p>
+        <p className="text-muted-foreground">Server status, users, bots, integrations, and token statistics.</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {cards.map((card) => (
-          <Card key={card.label}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{card.label}</CardTitle>
-              <card.icon className={`h-4 w-4 ${card.color}`} />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{card.value}</div>
-            </CardContent>
-          </Card>
-        ))}
+      {/* Server-wide counters */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Registered Users</CardTitle>
+            <Users className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{stats.totalUsers.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground mt-1">on this homeserver</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Bots</CardTitle>
+            <Bot className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">
+              {stats.activeBots}
+              <span className="text-lg font-normal text-muted-foreground"> / {stats.totalBots}</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">running / total</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Integrations</CardTitle>
+            <Puzzle className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">
+              {stats.activeIntegrations}
+              <span className="text-lg font-normal text-muted-foreground"> / {stats.totalIntegrations}</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">active / installed</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Registrations (24h)</CardTitle>
+            <Activity className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{stats.recentRegistrations}</div>
+            <p className="text-xs text-muted-foreground mt-1">new accounts today</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Token statistics */}
+      <div>
+        <h2 className="text-lg font-semibold mb-3">Invitation Tokens</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {tokenCards.map((card) => (
+            <Card key={card.label}>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">{card.label}</CardTitle>
+                <card.icon className={`h-4 w-4 ${card.color}`} />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold">{card.value}</div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     </div>
   );

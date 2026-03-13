@@ -164,6 +164,25 @@ export const rotateServerTokenSchema = z.object({
   adminToken: z.string().min(1).max(10000),
 });
 
+export const createUserSchema = z.object({
+  localpart: z
+    .string()
+    .min(1, "Username is required")
+    .max(64)
+    .regex(/^[a-z0-9._=\-/]+$/, "Username may only contain lowercase letters, numbers, and ._=-/"),
+  password: z.string().min(8, "Password must be at least 8 characters").max(512),
+  displayname: z.string().max(256).optional(),
+  admin: z.boolean().optional(),
+});
+
+export const modifyUserSchema = z.object({
+  password: z.string().min(8).max(512).optional(),
+  displayname: z.string().max(256).optional(),
+  admin: z.boolean().optional(),
+  locked: z.boolean().optional(),
+  deactivated: z.boolean().optional(),
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateTokenInput = z.infer<typeof createTokenSchema>;
 export type UpdateTokenInput = z.infer<typeof updateTokenSchema>;
@@ -177,3 +196,5 @@ export type CreateBotInput = z.infer<typeof createBotSchema>;
 export type UpdateBotInput = z.infer<typeof updateBotSchema>;
 export type BotRoomAssignmentInput = z.infer<typeof botRoomAssignmentSchema>;
 export type BotFeatureInput = z.infer<typeof botFeatureSchema>;
+export type CreateUserInput = z.infer<typeof createUserSchema>;
+export type ModifyUserInput = z.infer<typeof modifyUserSchema>;

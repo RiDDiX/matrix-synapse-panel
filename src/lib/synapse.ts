@@ -11,6 +11,8 @@ import {
   adminRegistrationToken,
   adminUserEndpoint,
   adminUserLogin,
+  ADMIN_USERS,
+  adminDeactivateUser,
   ADMIN_ROOMS,
   adminJoinRoom,
   adminRoomMembers,
@@ -646,4 +648,195 @@ export async function runDiagnostics(conn?: SynapseConnection, serverName?: stri
   }
 
   return result;
+}
+
+// --- User management (Admin API) ---
+
+export interface SynapseUserListEntry {
+  name: string;
+  displayname: string | null;
+  avatar_url: string | null;
+  admin: boolean;
+  deactivated: boolean;
+  shadow_banned: boolean;
+  creation_ts: number;
+  last_seen_ts: number | null;
+  locked: boolean;
+}
+
+/**
+ * List users from Synapse via GET /_synapse/admin/v2/users.
+ * Supports pagination, search, and filtering.
+ * Ref: https://element-hq.github.io/synapse/latest/admin_api/user_admin_api.html#list-accounts
+ */
+export async function listUsers(
+  params: {
+    from?: number;
+    limit?: number;
+    user_id?: string;
+    name?: string;
+    guests?: boolean;
+    admins?: boolean;
+    deactivated?: boolean;
+    order_by?: string;
+    dir?: "f" | "b";
+  } = {},
+  conn?: SynapseConnection
+): Promise<{ users: SynapseUserListEntry[]; total: number; next_token?: number }> {
+  const c = conn ?? getDefaultConnection();
+  const query = new URLSearchParams();
+  if (params.from !== undefined) query.set("from", String(params.from));
+  if (params.limit !== undefined) query.set("limit", String(params.limit));
+  if (params.user_id) query.set("user_id", params.user_id);
+  if (params.name) query.set("name", params.name);
+  if (params.guests !== undefined) query.set("guests", String(params.guests));
+  if (params.admins !== undefined) query.set("admins", String(params.admins));
+  if (params.deactivated !== undefined) query.set("deactivated", String(params.deactivated));
+  if (params.order_by) query.set("order_by", params.order_by);
+  if (params.dir) query.set("dir", params.dir);
+
+  const qs = query.toString();
+  const path = qs ? `${ADMIN_USERS}?${qs}` : ADMIN_USERS;
+
+  return synapseRequest<{ users: SynapseUserListEntry[]; total: number; next_token?: number }>(
+    c.internalUrl,
+    path,
+    { method: "GET", headers: adminHeaders(c) }
+  );
+}
+
+export interface SynapseUserDetail {
+  name: string;
+  displayname: string | null;
+  avatar_url: string | null;
+  admin: boolean;
+  deactivated: boolean;
+  shadow_banned: boolean;
+  creation_ts: number;
+  last_seen_ts: number | null;
+  locked: boolean;
+  consent_version: string | null;
+  consent_server_notice_sent: string | null;
+  appservice_id: string | null;
+  user_type: string | null;
+}
+
+/**
+ * Get a single user's details via GET /_synapse/admin/v2/users/{userId}.
+ * Ref: https://element-hq.github.io/synapse/latest/admin_api/user_admin_api.html#query-user-account
+ */
+export async function getUser(
+  userId: string,
+  conn?: SynapseConnection
+): Promise<SynapseUserDetail> {
+  const c = conn ?? getDefaultConnection();
+  return synapseRequest<SynapseUserDetail>(
+    c.internalUrl,
+    adminUserEndpoint(userId),
+    { method: "GET", headers: adminHeaders(c) }
+  );
+}
+
+/**
+ * Create a new user via PUT /_synapse/admin/v2/users/{userId}.
+ * Ref: https://element-hq.github.io/synapse/latest/admin_api/user_admin_api.html#create-or-modify-account
+ */
+export async function createUser(
+  userId: string,
+  params: {
+    password: string;
+    displayname?: string;
+    admin?: boolean;
+    locked?: boolean;
+  },
+  conn?: SynapseConnection
+): Promise<SynapseUserDetail> {
+  const c = conn ?? getDefaultConnection();
+  return synapseRequest<SynapseUserDetail>(
+    c.internalUrl,
+    adminUserEndpoint(userId),
+    {
+      method: "PUT",
+      headers: adminHeaders(c),
+      body: JSON.stringify({
+        password: params.password,
+        displayname: params.displayname ?? "",
+        admin: params.admin ?? false,
+        locked: params.locked ?? false,
+        deactivated: false,
+      }),
+    }
+  );
+}
+
+/**
+ * Modify an existing user via PUT /_synapse/admin/v2/users/{userId}.
+ * Only sends the fields that need updating.
+ * Ref: https://element-hq.github.io/synapse/latest/admin_api/user_admin_api.html#create-or-modify-account
+ */
+export async function modifyUser(
+  userId: string,
+  params: {
+    password?: string;
+    displayname?: string;
+    admin?: boolean;
+    locked?: boolean;
+    deactivated?: boolean;
+  },
+  conn?: SynapseConnection
+): Promise<SynapseUserDetail> {
+  const c = conn ?? getDefaultConnection();
+  return synapseRequest<SynapseUserDetail>(
+    c.internalUrl,
+    adminUserEndpoint(userId),
+    {
+      method: "PUT",
+      headers: adminHeaders(c),
+      body: JSON.stringify(params),
+    }
+  );
+}
+
+/**
+ * Deactivate a user via POST /_synapse/admin/v1/deactivate/{userId}.
+ * Set erase=true to GDPR-erase all user data.
+ * Ref: https://element-hq.github.io/synapse/latest/admin_api/user_admin_api.html#deactivate-account
+ */
+export async function deactivateUser(
+  userId: string,
+  erase: boolean = false,
+  conn?: SynapseConnection
+): Promise<void> {
+  const c = conn ?? getDefaultConnection();
+  await synapseRequest<{ id_server_unbind_result: string }>(
+    c.internalUrl,
+    adminDeactivateUser(userId),
+    {
+      method: "POST",
+      headers: adminHeaders(c),
+      body: JSON.stringify({ erase }),
+    }
+  );
+}
+
+/**
+ * Reactivate a deactivated user by setting deactivated=false via PUT /_synapse/admin/v2/users/{userId}.
+ * A new password must be provided.
+ * Ref: https://element-hq.github.io/synapse/latest/admin_api/user_admin_api.html#create-or-modify-account
+ */
+export async function reactivateUser(
+  userId: string,
+  password: string,
+  conn?: SynapseConnection
+): Promise<SynapseUserDetail> {
+  const c = conn ?? getDefaultConnection();
+  return synapseRequest<SynapseUserDetail>(
+    c.internalUrl,
+    adminUserEndpoint(userId),
+    {
+      method: "PUT",
+      headers: adminHeaders(c),
+      body: JSON.stringify({ deactivated: false, password }),
+    }
+  );
 }

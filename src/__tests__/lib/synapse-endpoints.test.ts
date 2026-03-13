@@ -5,6 +5,8 @@ import {
   adminRegistrationToken,
   adminUserEndpoint,
   adminUserLogin,
+  ADMIN_USERS,
+  adminDeactivateUser,
   ADMIN_ROOMS,
   adminJoinRoom,
   adminRoomMembers,
@@ -34,6 +36,10 @@ describe("endpoint constants", () => {
     expect(CLIENT_REGISTER).toBe("/_matrix/client/v3/register");
   });
 
+  it("ADMIN_USERS is the official path", () => {
+    expect(ADMIN_USERS).toBe("/_synapse/admin/v2/users");
+  });
+
   it("ADMIN_ROOMS is the official path", () => {
     expect(ADMIN_ROOMS).toBe("/_synapse/admin/v1/rooms");
   });
@@ -46,6 +52,7 @@ describe("endpoint constants", () => {
     const allPaths = [
       ADMIN_REGISTRATION_TOKENS,
       ADMIN_REGISTRATION_TOKENS_NEW,
+      ADMIN_USERS,
       ADMIN_ROOMS,
       CLIENT_VERSIONS,
       CLIENT_REGISTER,
@@ -53,6 +60,7 @@ describe("endpoint constants", () => {
       adminRegistrationToken("test"),
       adminUserEndpoint("@bot:example.com"),
       adminUserLogin("@bot:example.com"),
+      adminDeactivateUser("@user:example.com"),
       adminJoinRoom("!room:example.com"),
       adminRoomMembers("!room:example.com"),
       adminLeaveRoom("!room:example.com"),
@@ -185,6 +193,12 @@ describe("adminUserLogin", () => {
   });
 });
 
+describe("adminDeactivateUser", () => {
+  it("builds correct path for a user ID", () => {
+    expect(adminDeactivateUser("@user:example.com")).toBe("/_synapse/admin/v1/deactivate/%40user%3Aexample.com");
+  });
+});
+
 describe("adminJoinRoom", () => {
   it("builds correct path for a room ID", () => {
     expect(adminJoinRoom("!room:example.com")).toBe("/_synapse/admin/v1/join/!room%3Aexample.com");
@@ -211,10 +225,12 @@ describe("URL separation enforcement", () => {
   it("admin endpoints start with /_synapse/admin/", () => {
     expect(ADMIN_REGISTRATION_TOKENS).toMatch(/^\/\_synapse\/admin\//);
     expect(ADMIN_REGISTRATION_TOKENS_NEW).toMatch(/^\/\_synapse\/admin\//);
+    expect(ADMIN_USERS).toMatch(/^\/\_synapse\/admin\//);
     expect(ADMIN_ROOMS).toMatch(/^\/\_synapse\/admin\//);
     expect(adminRegistrationToken("test")).toMatch(/^\/\_synapse\/admin\//);
     expect(adminUserEndpoint("@bot:example.com")).toMatch(/^\/\_synapse\/admin\//);
     expect(adminUserLogin("@bot:example.com")).toMatch(/^\/\_synapse\/admin\//);
+    expect(adminDeactivateUser("@user:example.com")).toMatch(/^\/\_synapse\/admin\//);
     expect(adminJoinRoom("!room:example.com")).toMatch(/^\/\_synapse\/admin\//);
     expect(adminRoomMembers("!room:example.com")).toMatch(/^\/\_synapse\/admin\//);
     expect(adminLeaveRoom("!room:example.com")).toMatch(/^\/\_synapse\/admin\//);

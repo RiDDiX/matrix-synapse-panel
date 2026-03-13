@@ -71,6 +71,11 @@ export interface DashboardStats {
   exhaustedTokens: number;
   disabledTokens: number;
   recentRegistrations: number;
+  totalUsers: number;
+  totalBots: number;
+  activeBots: number;
+  totalIntegrations: number;
+  activeIntegrations: number;
 }
 
 export type AuditAction =
@@ -116,4 +121,9 @@ export type AuditAction =
   | "bot.deleted"
   | "bot.room.assigned"
   | "bot.room.unassigned"
-  | "bot.feature.updated";
+  | "bot.feature.updated"
+  | "user.created"
+  | "user.modified"
+  | "user.deactivated"
+  | "user.reactivated"
+  | "user.deleted";

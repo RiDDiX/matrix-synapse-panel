@@ -7,6 +7,8 @@ import {
   createServerSchema,
   updateServerSchema,
   rotateServerTokenSchema,
+  createUserSchema,
+  modifyUserSchema,
 } from "@/lib/validation";
 
 describe("loginSchema", () => {
@@ -238,5 +240,72 @@ describe("rotateServerTokenSchema", () => {
 
   it("rejects missing token", () => {
     expect(rotateServerTokenSchema.safeParse({}).success).toBe(false);
+  });
+});
+
+describe("createUserSchema", () => {
+  it("accepts valid input", () => {
+    const result = createUserSchema.safeParse({ localpart: "alice", password: "securepass123" });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts with displayname and admin flag", () => {
+    const result = createUserSchema.safeParse({
+      localpart: "bob",
+      password: "securepass123",
+      displayname: "Bob Smith",
+      admin: true,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects empty localpart", () => {
+    expect(createUserSchema.safeParse({ localpart: "", password: "securepass123" }).success).toBe(false);
+  });
+
+  it("rejects uppercase localpart", () => {
+    expect(createUserSchema.safeParse({ localpart: "Alice", password: "securepass123" }).success).toBe(false);
+  });
+
+  it("rejects short password", () => {
+    expect(createUserSchema.safeParse({ localpart: "alice", password: "short" }).success).toBe(false);
+  });
+
+  it("rejects missing password", () => {
+    expect(createUserSchema.safeParse({ localpart: "alice" }).success).toBe(false);
+  });
+
+  it("allows dots, underscores, hyphens, equals, slashes in localpart", () => {
+    expect(createUserSchema.safeParse({ localpart: "my.user_name-2/x=y", password: "securepass123" }).success).toBe(true);
+  });
+
+  it("rejects special chars in localpart", () => {
+    expect(createUserSchema.safeParse({ localpart: "alice@home", password: "securepass123" }).success).toBe(false);
+  });
+});
+
+describe("modifyUserSchema", () => {
+  it("accepts empty object (no changes)", () => {
+    expect(modifyUserSchema.safeParse({}).success).toBe(true);
+  });
+
+  it("accepts password change", () => {
+    expect(modifyUserSchema.safeParse({ password: "newpassword123" }).success).toBe(true);
+  });
+
+  it("accepts displayname change", () => {
+    expect(modifyUserSchema.safeParse({ displayname: "New Name" }).success).toBe(true);
+  });
+
+  it("accepts admin flag change", () => {
+    expect(modifyUserSchema.safeParse({ admin: true }).success).toBe(true);
+  });
+
+  it("accepts locked flag change", () => {
+    expect(modifyUserSchema.safeParse({ locked: true }).success).toBe(true);
+  });
+
+  it("rejects short password", () => {
+    expect(modifyUserSchema.safeParse({ password: "short" }).success).toBe(false);
   });
 });
