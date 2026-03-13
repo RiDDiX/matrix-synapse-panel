@@ -155,6 +155,53 @@ The portal enforces Matrix localpart rules:
 
 ---
 
+## Admin Authentication
+
+### Login succeeds but redirects back to login page
+
+**Symptom:** You enter valid credentials, the login appears to succeed (no error), but you are immediately redirected back to the login page.
+
+**Root cause:** The session cookie has the `Secure` flag set, but you are accessing the portal via plain HTTP. Browsers refuse to send `Secure` cookies over non-HTTPS connections.
+
+**Solutions:**
+1. Set `APP_URL` to your actual access URL (e.g. `http://192.168.1.100:3000`)
+2. Or set `COOKIE_SECURE=false` in your `.env` file
+3. Or access the portal via HTTPS (recommended for production)
+
+**Diagnosis:** Check `docker compose logs app` for:
+```
+[auth] Session check: no session cookie received
+```
+This confirms the browser is not sending the cookie.
+
+---
+
+### Session expires immediately after login
+
+**Causes:**
+- `SESSION_SECRET` changed between login and the next request (container restart with a new random secret)
+- Cookie `path` mismatch (should be `/`)
+
+**Solutions:**
+- Ensure `SESSION_SECRET` is set in `.env` and not randomly generated
+- Check logs for `[auth] Session config:` to verify cookie settings
+
+---
+
+### Login works locally but not behind reverse proxy
+
+**Causes:**
+- Proxy strips or does not forward cookies
+- `APP_URL` does not match the public URL
+- `Secure` cookie enabled but proxy connects to the app via HTTP internally
+
+**Solutions:**
+1. Set `APP_URL` to the public HTTPS URL (e.g. `https://invite.example.com`)
+2. Ensure proxy forwards `Host`, `X-Forwarded-For`, and `X-Forwarded-Proto` headers
+3. If the proxy connects to the app via HTTP internally but provides HTTPS externally, `APP_URL=https://...` is correct — the cookie will be Secure, and the browser will send it over HTTPS
+
+---
+
 ## Admin Dashboard
 
 ### Server selector is empty

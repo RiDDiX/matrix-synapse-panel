@@ -37,11 +37,13 @@ export async function POST(request: NextRequest) {
 
   const user = await db.adminUser.findUnique({ where: { email } });
   if (!user) {
+    console.log(`[auth] Login failed: unknown email, ip=${ip}`);
     return NextResponse.json({ error: "Invalid credentials." }, { status: 401 });
   }
 
   const valid = await bcrypt.compare(password, user.password);
   if (!valid) {
+    console.log(`[auth] Login failed: bad password for ${email}, ip=${ip}`);
     return NextResponse.json({ error: "Invalid credentials." }, { status: 401 });
   }
 
@@ -51,6 +53,7 @@ export async function POST(request: NextRequest) {
   session.isLoggedIn = true;
   await session.save();
 
+  console.log(`[auth] Login success: ${email}, ip=${ip}`);
   await logAudit({ action: "admin.login", actor: user.email, ip });
 
   return NextResponse.json({ ok: true });

@@ -18,6 +18,7 @@ const envSchema = z.object({
   CAPTCHA_SECRET: z.string().optional(),
   SYNAPSE_CONFIG_DIR: z.string().optional(),
   SYNAPSE_APPSERVICE_DIR: z.string().optional(),
+  COOKIE_SECURE: z.enum(["true", "false"]).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -72,15 +72,23 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    fetch("/api/auth/session")
+    let cancelled = false;
+    fetch("/api/auth/session", { credentials: "same-origin" })
       .then((res) => {
+        if (cancelled) return;
         if (!res.ok) {
-          router.push("/admin/login");
+          setAuthenticated(false);
+          router.replace("/admin/login");
         } else {
           setAuthenticated(true);
         }
       })
-      .catch(() => router.push("/admin/login"));
+      .catch(() => {
+        if (cancelled) return;
+        setAuthenticated(false);
+        router.replace("/admin/login");
+      });
+    return () => { cancelled = true; };
   }, [pathname, router]);
 
   if (pathname === "/admin/login") {

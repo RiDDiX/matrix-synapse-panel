@@ -115,10 +115,21 @@ services:
       - traefik
 ```
 
+## Session Cookie and Authentication
+
+The session cookie's `Secure` flag is determined by `APP_URL`:
+- **`APP_URL=https://...`** → cookie has `Secure` flag → browser only sends it over HTTPS ✓
+- **`APP_URL=http://...`** → cookie has no `Secure` flag → works over plain HTTP ✓
+
+You can override this with `COOKIE_SECURE=true` or `COOKIE_SECURE=false` in your `.env` file.
+
+:::danger
+If your reverse proxy provides HTTPS to the browser but connects to the app via HTTP internally, set `APP_URL` to the **public HTTPS URL**. The `Secure` flag is about browser-to-proxy communication, not proxy-to-app.
+:::
+
 ## Security Considerations
 
-- **Always use HTTPS in production.** The iron-session cookie has `secure: true` in production mode, which requires HTTPS.
+- **Always use HTTPS in production.** Set `APP_URL` to your public HTTPS URL (e.g., `https://portal.example.com`).
 - **Do not expose port 3000 to the internet.** The app binds to `127.0.0.1` by default in the Docker Compose configuration.
-- **Set `APP_URL` to your public HTTPS URL** (e.g., `https://portal.example.com`).
 - **Ensure `X-Forwarded-For` or `X-Real-IP` headers are set** by your proxy. These are used for rate limiting and audit logging. Without them, all requests appear to come from the proxy's IP.
 - **Set `client_max_body_size`** (Nginx) to at least 5 MB for branding asset uploads.

@@ -38,8 +38,66 @@ All sensitive values are encrypted before database storage:
 ### Admin Sessions
 
 - **Library:** iron-session (encrypted, signed, httpOnly cookies)
-- **Cookie flags:** `httpOnly`, `secure` (in production), `sameSite: strict`
+- **Cookie flags:** `httpOnly`, `sameSite: lax`, `path: /`
+- **Secure flag:** Auto-detected from `APP_URL` protocol, overridable via `COOKIE_SECURE` env var
+- **Session TTL:** 8 hours
 - **No session data stored server-side** — the cookie is the session (encrypted with `SESSION_SECRET`)
+
+### Cookie Secure Flag Resolution
+
+The `Secure` flag determines whether the browser sends the session cookie. It is resolved in this order:
+
+1. **`COOKIE_SECURE=true`** → always set Secure (use if reverse proxy terminates TLS but `APP_URL` is an internal HTTP address)
+2. **`COOKIE_SECURE=false`** → never set Secure (use for plain HTTP access without TLS)
+3. **`APP_URL` starts with `https://`** → Secure enabled
+4. **Otherwise** → Secure disabled
+
+:::danger Common Login Loop Cause
+If you access the portal via plain HTTP (e.g. `http://192.168.x.x:3000`), the cookie **must not** have the `Secure` flag. Set `APP_URL` to your actual HTTP URL or set `COOKIE_SECURE=false`.
+
+**Symptom:** Login appears to succeed but you are immediately redirected back to the login page.
+:::
+
+### Reverse Proxy Requirements
+
+When running behind a reverse proxy (Nginx, Caddy, Nginx Proxy Manager, SWAG):
+
+| Requirement | Details |
+|---|---|
+| `APP_URL` | Set to the **public-facing** URL (e.g. `https://invite.example.com`) |
+| `X-Forwarded-For` | Proxy must forward the client IP (used for rate limiting and audit logging) |
+| `X-Forwarded-Proto` | Recommended for protocol detection |
+| `Host` | Proxy must forward the original Host header |
+
+**Example Nginx config:**
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:3000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+### Auth Observability
+
+The server logs structured `[auth]` messages for all authentication events:
+
+| Log | Meaning |
+|---|---|
+| `[auth] Session config: ...` | Logged once on first session access — shows cookie settings |
+| `[auth] Login success: email` | Successful login |
+| `[auth] Login failed: unknown email` | Email not found |
+| `[auth] Login failed: bad password` | Wrong password |
+| `[auth] Session check: no session cookie received` | Browser did not send cookie — likely Secure/protocol mismatch |
+| `[auth] Session check: cookie present but session invalid` | Cookie sent but expired or corrupted |
+| `[auth] Logout: email` | Explicit logout |
+
+:::tip Debugging Login Loops
+Check `docker logs` for `[auth] Session check: no session cookie received`. This confirms a Secure cookie mismatch. Fix by setting `APP_URL` to your actual access URL or setting `COOKIE_SECURE=false`.
+:::
 
 ### Password Storage
 
@@ -104,12 +162,13 @@ All database queries for server-scoped data include a `serverId` filter. This pr
 
 The Next.js middleware (`src/middleware.ts`) enforces:
 
-- **Authentication check** on all `/admin` and `/api/admin` routes
-- **Redirect to login** for unauthenticated requests
-- **Security headers** (in production):
+- **Security headers** on all routes:
   - `X-Content-Type-Options: nosniff`
   - `X-Frame-Options: DENY`
   - `Referrer-Policy: strict-origin-when-cross-origin`
+  - `Permissions-Policy: camera=(), microphone=(), geolocation=()`
+- **Admin route guard** — client-side session check redirects to `/admin/login` if unauthenticated
+- **API route guard** — `requireAdmin()` returns 401 for unauthenticated API requests
 
 ## Audit Trail
 

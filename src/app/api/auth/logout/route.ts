@@ -7,6 +7,7 @@ export async function POST() {
   const email = session.email;
 
   if (email) {
+    console.log(`[auth] Logout: ${email}`);
     await logAudit({ action: "admin.logout", actor: email });
   }
 

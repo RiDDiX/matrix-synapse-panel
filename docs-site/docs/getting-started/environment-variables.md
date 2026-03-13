@@ -26,6 +26,7 @@ All configuration is done via environment variables. In Docker deployments, thes
 | `RATE_LIMIT_MAX_REQUESTS` | `15` | Maximum requests per rate limit window |
 | `CAPTCHA_SITE_KEY` | — | hCaptcha or reCAPTCHA site key (placeholder for future use) |
 | `CAPTCHA_SECRET` | — | CAPTCHA secret key |
+| `COOKIE_SECURE` | _(auto)_ | Override the Secure flag on session cookies. `true` or `false`. Auto-detected from `APP_URL` if not set. |
 | `SYNAPSE_CONFIG_DIR` | — | Path to Synapse config directory (for managed integration mode) |
 | `SYNAPSE_APPSERVICE_DIR` | — | Path to Synapse appservice registration directory |
 
