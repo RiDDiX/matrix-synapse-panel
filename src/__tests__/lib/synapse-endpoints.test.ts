@@ -11,9 +11,33 @@ import {
   adminJoinRoom,
   adminRoomMembers,
   adminLeaveRoom,
+  adminRoomDetail,
+  adminDeleteRoom,
+  adminRoomState,
   CLIENT_VERSIONS,
   CLIENT_REGISTER,
   CLIENT_WHOAMI,
+  CLIENT_LOGIN,
+  CLIENT_LOGIN_FLOWS,
+  CLIENT_CREATE_ROOM,
+  CLIENT_JOINED_ROOMS,
+  clientRoomMessages,
+  clientSendEvent,
+  clientSendStateEvent,
+  clientGetStateEvent,
+  clientRoomState,
+  clientRoomMembers,
+  clientJoinedMembers,
+  clientJoinRoom,
+  clientLeaveRoom,
+  clientInviteUser,
+  clientKickUser,
+  clientBanUser,
+  clientUnbanUser,
+  clientRoomAlias,
+  clientUpgradeRoom,
+  clientGetEvent,
+  clientRelations,
   clientTokenValidity,
   buildUrl,
   classifyFailure,
@@ -48,6 +72,18 @@ describe("endpoint constants", () => {
     expect(CLIENT_WHOAMI).toBe("/_matrix/client/v3/account/whoami");
   });
 
+  it("CLIENT_LOGIN is the official path", () => {
+    expect(CLIENT_LOGIN).toBe("/_matrix/client/v3/login");
+  });
+
+  it("CLIENT_CREATE_ROOM is the official path", () => {
+    expect(CLIENT_CREATE_ROOM).toBe("/_matrix/client/v3/createRoom");
+  });
+
+  it("CLIENT_JOINED_ROOMS is the official path", () => {
+    expect(CLIENT_JOINED_ROOMS).toBe("/_matrix/client/v3/joined_rooms");
+  });
+
   it("no endpoint uses old /_matrix/client/.../admin paths", () => {
     const allPaths = [
       ADMIN_REGISTRATION_TOKENS,
@@ -57,6 +93,9 @@ describe("endpoint constants", () => {
       CLIENT_VERSIONS,
       CLIENT_REGISTER,
       CLIENT_WHOAMI,
+      CLIENT_LOGIN,
+      CLIENT_CREATE_ROOM,
+      CLIENT_JOINED_ROOMS,
       adminRegistrationToken("test"),
       adminUserEndpoint("@bot:example.com"),
       adminUserLogin("@bot:example.com"),
@@ -64,7 +103,25 @@ describe("endpoint constants", () => {
       adminJoinRoom("!room:example.com"),
       adminRoomMembers("!room:example.com"),
       adminLeaveRoom("!room:example.com"),
+      adminRoomDetail("!room:example.com"),
+      adminRoomState("!room:example.com"),
       clientTokenValidity("test"),
+      clientRoomMessages("!room:example.com"),
+      clientSendEvent("!room:example.com", "m.room.message", "txn1"),
+      clientSendStateEvent("!room:example.com", "m.room.name", ""),
+      clientRoomState("!room:example.com"),
+      clientRoomMembers("!room:example.com"),
+      clientJoinedMembers("!room:example.com"),
+      clientJoinRoom("!room:example.com"),
+      clientLeaveRoom("!room:example.com"),
+      clientInviteUser("!room:example.com"),
+      clientKickUser("!room:example.com"),
+      clientBanUser("!room:example.com"),
+      clientUnbanUser("!room:example.com"),
+      clientRoomAlias("#test:example.com"),
+      clientUpgradeRoom("!room:example.com"),
+      clientGetEvent("!room:example.com", "$event"),
+      clientRelations("!room:example.com", "$event"),
     ];
     for (const p of allPaths) {
       expect(p).not.toContain("/_matrix/client/v1/admin");
@@ -221,6 +278,106 @@ describe("adminLeaveRoom", () => {
   });
 });
 
+describe("Client-Server API room endpoints", () => {
+  it("clientRoomMessages builds correct path", () => {
+    expect(clientRoomMessages("!room:example.com")).toBe("/_matrix/client/v3/rooms/!room%3Aexample.com/messages");
+  });
+
+  it("clientSendEvent builds correct path with event type and txn ID", () => {
+    expect(clientSendEvent("!room:example.com", "m.room.message", "txn1"))
+      .toBe("/_matrix/client/v3/rooms/!room%3Aexample.com/send/m.room.message/txn1");
+  });
+
+  it("clientSendStateEvent builds correct path", () => {
+    expect(clientSendStateEvent("!room:example.com", "m.room.name", ""))
+      .toBe("/_matrix/client/v3/rooms/!room%3Aexample.com/state/m.room.name/");
+  });
+
+  it("clientGetStateEvent builds correct path with state key", () => {
+    expect(clientGetStateEvent("!room:example.com", "m.room.member", "@user:example.com"))
+      .toBe("/_matrix/client/v3/rooms/!room%3Aexample.com/state/m.room.member/%40user%3Aexample.com");
+  });
+
+  it("clientRoomState builds correct path", () => {
+    expect(clientRoomState("!room:example.com")).toBe("/_matrix/client/v3/rooms/!room%3Aexample.com/state");
+  });
+
+  it("clientRoomMembers builds correct path", () => {
+    expect(clientRoomMembers("!room:example.com")).toBe("/_matrix/client/v3/rooms/!room%3Aexample.com/members");
+  });
+
+  it("clientJoinedMembers builds correct path", () => {
+    expect(clientJoinedMembers("!room:example.com")).toBe("/_matrix/client/v3/rooms/!room%3Aexample.com/joined_members");
+  });
+
+  it("clientJoinRoom builds correct path", () => {
+    expect(clientJoinRoom("!room:example.com")).toBe("/_matrix/client/v3/join/!room%3Aexample.com");
+  });
+
+  it("clientLeaveRoom builds correct path", () => {
+    expect(clientLeaveRoom("!room:example.com")).toBe("/_matrix/client/v3/rooms/!room%3Aexample.com/leave");
+  });
+
+  it("clientInviteUser builds correct path", () => {
+    expect(clientInviteUser("!room:example.com")).toBe("/_matrix/client/v3/rooms/!room%3Aexample.com/invite");
+  });
+
+  it("clientKickUser builds correct path", () => {
+    expect(clientKickUser("!room:example.com")).toBe("/_matrix/client/v3/rooms/!room%3Aexample.com/kick");
+  });
+
+  it("clientBanUser builds correct path", () => {
+    expect(clientBanUser("!room:example.com")).toBe("/_matrix/client/v3/rooms/!room%3Aexample.com/ban");
+  });
+
+  it("clientUnbanUser builds correct path", () => {
+    expect(clientUnbanUser("!room:example.com")).toBe("/_matrix/client/v3/rooms/!room%3Aexample.com/unban");
+  });
+
+  it("clientRoomAlias builds correct path", () => {
+    expect(clientRoomAlias("#test:example.com")).toBe("/_matrix/client/v3/directory/room/%23test%3Aexample.com");
+  });
+
+  it("clientUpgradeRoom builds correct path", () => {
+    expect(clientUpgradeRoom("!room:example.com")).toBe("/_matrix/client/v3/rooms/!room%3Aexample.com/upgrade");
+  });
+
+  it("clientGetEvent builds correct path", () => {
+    expect(clientGetEvent("!room:example.com", "$event1")).toBe("/_matrix/client/v3/rooms/!room%3Aexample.com/event/%24event1");
+  });
+});
+
+describe("clientRelations", () => {
+  it("builds base path without relType", () => {
+    expect(clientRelations("!room:example.com", "$event1"))
+      .toBe("/_matrix/client/v1/rooms/!room%3Aexample.com/relations/%24event1");
+  });
+
+  it("builds path with relType", () => {
+    expect(clientRelations("!room:example.com", "$event1", "m.thread"))
+      .toBe("/_matrix/client/v1/rooms/!room%3Aexample.com/relations/%24event1/m.thread");
+  });
+
+  it("builds path with relType and eventType", () => {
+    expect(clientRelations("!room:example.com", "$event1", "m.thread", "m.room.message"))
+      .toBe("/_matrix/client/v1/rooms/!room%3Aexample.com/relations/%24event1/m.thread/m.room.message");
+  });
+});
+
+describe("Synapse Admin room detail endpoints", () => {
+  it("adminRoomDetail builds correct path", () => {
+    expect(adminRoomDetail("!room:example.com")).toBe("/_synapse/admin/v1/rooms/!room%3Aexample.com");
+  });
+
+  it("adminDeleteRoom builds correct path", () => {
+    expect(adminDeleteRoom("!room:example.com")).toBe("/_synapse/admin/v1/rooms/!room%3Aexample.com");
+  });
+
+  it("adminRoomState builds correct path", () => {
+    expect(adminRoomState("!room:example.com")).toBe("/_synapse/admin/v1/rooms/!room%3Aexample.com/state");
+  });
+});
+
 describe("URL separation enforcement", () => {
   it("admin endpoints start with /_synapse/admin/", () => {
     expect(ADMIN_REGISTRATION_TOKENS).toMatch(/^\/\_synapse\/admin\//);
@@ -234,12 +391,33 @@ describe("URL separation enforcement", () => {
     expect(adminJoinRoom("!room:example.com")).toMatch(/^\/\_synapse\/admin\//);
     expect(adminRoomMembers("!room:example.com")).toMatch(/^\/\_synapse\/admin\//);
     expect(adminLeaveRoom("!room:example.com")).toMatch(/^\/\_synapse\/admin\//);
+    expect(adminRoomDetail("!room:example.com")).toMatch(/^\/\_synapse\/admin\//);
+    expect(adminRoomState("!room:example.com")).toMatch(/^\/\_synapse\/admin\//);
   });
 
   it("client endpoints start with /_matrix/client/", () => {
     expect(CLIENT_VERSIONS).toMatch(/^\/\_matrix\/client\//);
     expect(CLIENT_REGISTER).toMatch(/^\/\_matrix\/client\//);
     expect(CLIENT_WHOAMI).toMatch(/^\/\_matrix\/client\//);
+    expect(CLIENT_LOGIN).toMatch(/^\/\_matrix\/client\//);
+    expect(CLIENT_CREATE_ROOM).toMatch(/^\/\_matrix\/client\//);
+    expect(CLIENT_JOINED_ROOMS).toMatch(/^\/\_matrix\/client\//);
     expect(clientTokenValidity("test")).toMatch(/^\/\_matrix\/client\//);
+    expect(clientRoomMessages("!r:e.c")).toMatch(/^\/\_matrix\/client\//);
+    expect(clientSendEvent("!r:e.c", "m.room.message", "t")).toMatch(/^\/\_matrix\/client\//);
+    expect(clientSendStateEvent("!r:e.c", "m.room.name")).toMatch(/^\/\_matrix\/client\//);
+    expect(clientRoomState("!r:e.c")).toMatch(/^\/\_matrix\/client\//);
+    expect(clientRoomMembers("!r:e.c")).toMatch(/^\/\_matrix\/client\//);
+    expect(clientJoinedMembers("!r:e.c")).toMatch(/^\/\_matrix\/client\//);
+    expect(clientJoinRoom("!r:e.c")).toMatch(/^\/\_matrix\/client\//);
+    expect(clientLeaveRoom("!r:e.c")).toMatch(/^\/\_matrix\/client\//);
+    expect(clientInviteUser("!r:e.c")).toMatch(/^\/\_matrix\/client\//);
+    expect(clientKickUser("!r:e.c")).toMatch(/^\/\_matrix\/client\//);
+    expect(clientBanUser("!r:e.c")).toMatch(/^\/\_matrix\/client\//);
+    expect(clientUnbanUser("!r:e.c")).toMatch(/^\/\_matrix\/client\//);
+    expect(clientRoomAlias("#t:e.c")).toMatch(/^\/\_matrix\/client\//);
+    expect(clientUpgradeRoom("!r:e.c")).toMatch(/^\/\_matrix\/client\//);
+    expect(clientGetEvent("!r:e.c", "$e")).toMatch(/^\/\_matrix\/client\//);
+    expect(clientRelations("!r:e.c", "$e")).toMatch(/^\/\_matrix\/client\//);
   });
 });

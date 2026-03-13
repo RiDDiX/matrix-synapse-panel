@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
-import { LayoutDashboard, KeyRound, ScrollText, Activity, Paintbrush, Puzzle, Bot, Stethoscope, Server, Users, LogOut, Moon, Sun, ChevronDown } from "lucide-react";
+import { LayoutDashboard, KeyRound, ScrollText, Activity, Paintbrush, Puzzle, Bot, Stethoscope, Server, Users, LogOut, Moon, Sun, ChevronDown, DoorOpen, Shield, Wrench } from "lucide-react";
 import { useTheme } from "next-themes";
 import { ServerProvider, useServerContext } from "@/lib/server-context";
 
@@ -19,6 +19,9 @@ const navItems = [
   { href: "/admin/branding", label: "Branding", icon: Paintbrush },
   { href: "/admin/audit", label: "Audit Log", icon: ScrollText },
   { href: "/admin/diagnostics", label: "Diagnostics", icon: Activity },
+  { href: "/admin/rooms", label: "Rooms", icon: DoorOpen },
+  { href: "/admin/matrix-login", label: "Admin Login", icon: Shield },
+  { href: "/admin/server-prep", label: "Server Prep", icon: Wrench },
   { href: "/admin/integrations/diagnostics", label: "Int. Diagnostics", icon: Stethoscope },
 ];
 

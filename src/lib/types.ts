@@ -61,6 +61,12 @@ export interface DiagnosticsResult {
   msc3861Detected: boolean;
   adminApiBaseUrl: string | null;
   adminApiFailureClass: string | null;
+  loginFlowsAvailable: boolean;
+  passwordLoginAvailable: boolean;
+  loginFlows: string[];
+  roomApiAvailable: boolean;
+  adminVerificationPossible: boolean;
+  threadSupportAvailable: boolean;
   errors: string[];
 }
 
@@ -126,4 +132,20 @@ export type AuditAction =
   | "user.modified"
   | "user.deactivated"
   | "user.reactivated"
-  | "user.deleted";
+  | "user.deleted"
+  | "admin.matrix.login"
+  | "admin.matrix.login.failed"
+  | "admin.token.refreshed"
+  | "room.created"
+  | "room.message.sent"
+  | "room.state.updated"
+  | "room.member.invited"
+  | "room.member.kicked"
+  | "room.member.banned"
+  | "room.member.unbanned"
+  | "room.alias.set"
+  | "room.alias.deleted"
+  | "room.upgraded"
+  | "room.joined"
+  | "room.left"
+  | "server.prep.generated";

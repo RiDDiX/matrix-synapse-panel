@@ -14,11 +14,14 @@ Provides an admin dashboard for managing registration tokens and a public regist
 
 - **Multi-Server Management** — add, configure, enable/disable, and monitor multiple Synapse homeservers from one dashboard; server context selector for scoped administration; admin token encryption at rest
 - **Admin Dashboard** — overview stats, token CRUD with labels/notes, audit log, Synapse diagnostics (all scoped per server)
+- **Admin Login** — authenticate with any homeserver via the official Matrix login API (`POST /_matrix/client/v3/login`); verify admin status via Synapse Admin API; store access token encrypted per-server; login flow discovery
+- **Room Management** — list rooms (Synapse Admin API), create rooms, view detail/members/messages/threads/state, send messages (including threaded replies), manage membership (invite, kick, ban, unban), alias management, room upgrades — all via official Matrix Client-Server API
+- **Server Preparation** — wizard-based config generator for new Synapse deployments; produces `homeserver.yaml`, `docker-compose.yaml`, `.env`, log config, and a post-generation checklist; validates config consistency; downloads individual files or full bundle
 - **Integration Management** — install, configure, enable/disable, and monitor bridges and services from a unified catalog; supports managed (Docker) and guided (manual) deployment modes; generates appservice registration YAML and Docker Compose fragments
 - **Bot Platform** — create bots from templates (welcome, moderation, keyword responder, webhook relay, notification, bridge support, custom command); manage room assignments, feature toggles, and access tokens
 - **Branding Management** — full white-label system: visual identity, theme colors, layout presets, custom content, footer links, asset uploads, draft/publish workflow with live preview
 - **Public Registration** — branded form with invitation code validation, username/password/display name, dynamic theming from published branding profile
-- **Synapse Integration** — wraps Synapse Admin API for token management; uses standard Matrix UIA registration flow with `m.login.registration_token`; per-server connection configuration
+- **Synapse Integration** — wraps Synapse Admin API for token management; uses standard Matrix UIA registration flow with `m.login.registration_token`; Matrix Client-Server API for room operations; per-server connection configuration
 - **Security** — admin tokens never exposed to clients, iron-session cookies, rate limiting, input validation (Zod), security headers, audit logging, AES-256-GCM secret encryption, server admin tokens encrypted at rest
 - **Dark Mode** — full light/dark theme support
 - **Docker Ready** — multi-stage Dockerfile, docker-compose with PostgreSQL, non-root container
@@ -108,15 +111,18 @@ Do **not** enable MSC3861/OIDC delegation — this portal uses the standard regi
 src/
 ├── app/
 │   ├── api/
-│   │   ├── admin/        # Protected admin endpoints (servers, tokens, stats, audit, diagnostics, branding, integrations, bots)
+│   │   ├── admin/        # Protected admin endpoints (servers, tokens, stats, audit, diagnostics,
+│   │   │                 #   branding, integrations, bots, rooms, matrix-login, server-prep)
 │   │   ├── auth/         # Login, logout, session check
 │   │   ├── branding/     # Public branding + asset serving
 │   │   ├── health/       # Health check endpoint
 │   │   ├── server/       # Public server resolution
 │   │   └── register/     # Public registration + token validation
-│   ├── admin/            # Admin dashboard pages (servers, overview, tokens, integrations, bots, branding, audit, diagnostics)
+│   ├── admin/            # Admin dashboard pages (servers, overview, tokens, integrations, bots,
+│   │                     #   branding, audit, diagnostics, rooms, matrix-login, server-prep)
 │   └── register/         # Public registration page with dynamic branding
-├── __tests__/            # Unit tests (rate limiting, validation, types, branding, integrations, bots)
+├── __tests__/            # Unit tests (rate limiting, validation, types, branding, integrations,
+│                         #   bots, server-prep, endpoints)
 ├── components/
 │   └── ui/               # shadcn/ui components
 ├── hooks/                # React hooks (toast)
@@ -134,11 +140,14 @@ src/
     │   ├── engine.ts     # Integration lifecycle (install, config, health, files)
     │   ├── environment.ts # Deployment mode detection
     │   └── types.ts      # Integration type definitions
+    ├── matrix-client.ts  # Matrix Client-Server API service layer (login, rooms, messages, threads)
     ├── rate-limit.ts     # In-memory rate limiting
     ├── session.ts        # iron-session config
+    ├── server-prep.ts    # Synapse server preparation config generation engine
     ├── servers.ts        # Multi-server service layer (CRUD, encryption, diagnostics)
     ├── server-context.tsx  # React context for server selection in admin UI
-    ├── synapse.ts        # Synapse API wrapper (per-server connections)
+    ├── synapse.ts        # Synapse Admin API wrapper (per-server connections)
+    ├── synapse-endpoints.ts # All endpoint constants (Admin API + Client-Server API)
     ├── types.ts          # TypeScript type definitions
     ├── utils.ts          # Utility functions
     └── validation.ts     # Zod schemas
@@ -217,6 +226,14 @@ Ensure `X-Forwarded-For` and `X-Real-IP` headers are passed for accurate rate li
 | `POST` | `/api/admin/bots/:id/rooms` | Assign bot to room |
 | `DELETE` | `/api/admin/bots/:id/rooms` | Unassign bot from room |
 | `POST` | `/api/admin/bots/:id/features` | Toggle bot feature |
+| `GET` | `/api/admin/matrix-login?serverId=` | Discover login flows for a homeserver |
+| `POST` | `/api/admin/matrix-login?serverId=` | Admin Matrix login (password → verify admin → store token) |
+| `GET` | `/api/admin/rooms?serverId=` | List rooms (Synapse Admin API, paginated, searchable) |
+| `POST` | `/api/admin/rooms?serverId=` | Create room (Matrix Client-Server API) |
+| `GET` | `/api/admin/rooms/:roomId?serverId=&section=` | Room detail/state/members/messages/threads |
+| `POST` | `/api/admin/rooms/:roomId?serverId=` | Room actions (send_message, invite, kick, ban, unban, join, leave, set_alias, delete_alias, set_state, upgrade, send_threaded_reply) |
+| `POST` | `/api/admin/server-prep` | Generate Synapse server prep config files |
+| `PUT` | `/api/admin/server-prep` | Validate server prep config (without generating) |
 
 ## Database
 
@@ -318,6 +335,66 @@ The admin dashboard includes a bot management platform at `/admin/bots`.
 
 Each bot supports granular feature toggles (global or per-room scope):
 command handling, keyword triggers, webhook notifications, scheduled messages, moderation actions, room auto-join, room-specific responses, thread-aware replies, message relay, admin-only commands.
+
+## Room Management
+
+The admin dashboard includes room management at `/admin/rooms`.
+
+Room operations use two complementary APIs:
+- **Synapse Admin API** (`/_synapse/admin/v1/rooms`) — server-level room listing and details (sees all rooms)
+- **Matrix Client-Server API** (`/_matrix/client/v3/`) — room creation, messaging, membership, state events, aliases, upgrades
+
+Room actions are performed as the admin account's Matrix identity. Normal room power levels apply — homeserver admin status does **not** automatically override room permissions.
+
+Supported operations:
+- List all rooms with search and pagination
+- Create rooms (private/public, with invites, aliases, presets)
+- View room detail, state events, member list, message history
+- Send messages (plain text and formatted)
+- Send threaded replies (`m.thread` relation, Matrix v1.4+)
+- Manage membership: invite, kick, ban, unban, join, leave
+- Set/delete room aliases
+- Update room name, topic, and other state events
+- Upgrade rooms to new versions
+- View power levels (read-only)
+
+## Admin Login
+
+The admin dashboard includes a Matrix admin login flow at `/admin/matrix-login`.
+
+This implements the correct admin-login sequence:
+1. **Discover login flows** — `GET /_matrix/client/v3/login` to verify `m.login.password` is available
+2. **Authenticate** — `POST /_matrix/client/v3/login` with user ID and password
+3. **Verify identity** — `GET /_matrix/client/v3/account/whoami`
+4. **Confirm admin status** — `GET /_synapse/admin/v2/users/{userId}` checks `admin: true`
+5. **Store token** — the resulting access token is encrypted (AES-256-GCM) and stored per-server
+
+There is no special admin-token-minting endpoint. Passwords are used transiently and never stored. The raw token is never exposed to the browser after acquisition. All login attempts are audit-logged.
+
+## Server Preparation
+
+The admin dashboard includes a Synapse server preparation wizard at `/admin/server-prep`.
+
+This is a **preparation tool**, not a provisioning tool. It generates deployment-ready configuration files; the administrator deploys them manually.
+
+Generated files:
+- **homeserver.yaml** — Synapse configuration with all documented config keys
+- **docker-compose.yaml** — Docker Compose with Synapse + optional PostgreSQL service
+- **.env** — environment variable template with `CHANGE_ME` placeholders
+- **log.config** — Python logging configuration
+- **Post-generation checklist** — step-by-step deployment instructions
+
+Configurable options:
+- Server name, public URL, bind port
+- Database type (PostgreSQL recommended, SQLite for testing)
+- Registration settings (disabled, token-based, or open)
+- Reverse proxy and TLS termination
+- TURN/STUN for VoIP
+- SMTP for email notifications
+- URL preview settings, upload limits, log level
+- Docker container and network names
+
+All generated config keys reference the official Synapse configuration documentation.
 
 ## License
 

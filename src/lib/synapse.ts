@@ -20,6 +20,7 @@ import {
   CLIENT_VERSIONS,
   CLIENT_REGISTER,
   CLIENT_WHOAMI,
+  CLIENT_LOGIN,
   clientTokenValidity,
   buildUrl,
   classifyFailure,
@@ -547,6 +548,12 @@ export async function runDiagnostics(conn?: SynapseConnection, serverName?: stri
     msc3861Detected: false,
     adminApiBaseUrl: baseUrl,
     adminApiFailureClass: null,
+    loginFlowsAvailable: false,
+    passwordLoginAvailable: false,
+    loginFlows: [],
+    roomApiAvailable: false,
+    adminVerificationPossible: false,
+    threadSupportAvailable: false,
     errors: [],
   };
 
@@ -645,6 +652,74 @@ export async function runDiagnostics(conn?: SynapseConnection, serverName?: stri
     }
   } catch (e) {
     result.errors.push(`Registration flow check failed: ${e instanceof Error ? e.message : "unknown error"}`);
+  }
+
+  // 4. Check login flows availability (Client-Server API)
+  try {
+    const loginRes = await fetch(buildUrl(baseUrl, CLIENT_LOGIN), { cache: "no-store" });
+    if (loginRes.ok) {
+      const loginData = await loginRes.json() as { flows?: Array<{ type: string }> };
+      const flows = loginData.flows ?? [];
+      result.loginFlowsAvailable = flows.length > 0;
+      result.loginFlows = flows.map((f) => f.type);
+      result.passwordLoginAvailable = flows.some((f) => f.type === "m.login.password");
+    } else {
+      result.errors.push(`Login flows endpoint returned ${loginRes.status}`);
+    }
+  } catch (e) {
+    result.errors.push(`Login flows check failed: ${e instanceof Error ? e.message : "unknown error"}`);
+  }
+
+  // 5. Check room API availability (Admin API room list)
+  try {
+    const roomsUrl = buildUrl(baseUrl, `${ADMIN_ROOMS}?limit=1`);
+    const roomsRes = await fetch(roomsUrl, {
+      headers: adminHeaders(c),
+      cache: "no-store",
+    });
+    result.roomApiAvailable = roomsRes.ok;
+    if (!roomsRes.ok) {
+      result.errors.push(`Room API check failed: ${roomsRes.status}`);
+    }
+  } catch (e) {
+    result.errors.push(`Room API check failed: ${e instanceof Error ? e.message : "unknown error"}`);
+  }
+
+  // 6. Check admin verification (can we query a user via Admin API)
+  try {
+    const adminCheckUrl = buildUrl(baseUrl, ADMIN_USERS + "?limit=1");
+    const adminCheckRes = await fetch(adminCheckUrl, {
+      headers: adminHeaders(c),
+      cache: "no-store",
+    });
+    result.adminVerificationPossible = adminCheckRes.ok;
+    if (!adminCheckRes.ok) {
+      result.errors.push(`Admin user verification endpoint returned ${adminCheckRes.status}`);
+    }
+  } catch (e) {
+    result.errors.push(`Admin verification check failed: ${e instanceof Error ? e.message : "unknown error"}`);
+  }
+
+  // 7. Check thread support (via server versions — threading is stable since Matrix v1.4)
+  try {
+    const versionsRes = await fetch(buildUrl(baseUrl, CLIENT_VERSIONS), { cache: "no-store" });
+    if (versionsRes.ok) {
+      const versionsData = await versionsRes.json() as { versions?: string[] };
+      const versions = versionsData.versions ?? [];
+      // Threading is stable since v1.4. Check if any v1.4+ version is present.
+      result.threadSupportAvailable = versions.some((v) => {
+        const match = v.match(/^v(\d+)\.(\d+)$/);
+        if (!match || !match[1] || !match[2]) return false;
+        const major = parseInt(match[1], 10);
+        const minor = parseInt(match[2], 10);
+        return major > 1 || (major === 1 && minor >= 4);
+      });
+      if (!result.threadSupportAvailable) {
+        result.errors.push("Thread support requires Matrix v1.4+. Server versions: " + versions.join(", "));
+      }
+    }
+  } catch {
+    // Version check already done in step 1, not critical for thread check
   }
 
   return result;

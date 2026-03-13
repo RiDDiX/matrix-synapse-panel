@@ -183,6 +183,75 @@ export const modifyUserSchema = z.object({
   deactivated: z.boolean().optional(),
 });
 
+export const adminMatrixLoginSchema = z.object({
+  userId: z.string().min(1).max(500).regex(/^@[^:]+:.+$/, "Must be a full Matrix user ID (@user:server)"),
+  password: z.string().min(1).max(1024),
+});
+
+export const createRoomSchema = z.object({
+  name: z.string().min(1).max(500).optional(),
+  topic: z.string().max(2000).optional(),
+  room_alias_name: z.string().max(255).regex(/^[a-z0-9._=\-/]+$/).optional(),
+  visibility: z.enum(["public", "private"]).optional(),
+  preset: z.enum(["private_chat", "public_chat", "trusted_private_chat"]).optional(),
+  invite: z.array(z.string().regex(/^@[^:]+:.+$/)).max(100).optional(),
+  is_direct: z.boolean().optional(),
+  room_version: z.string().max(10).optional(),
+});
+
+export const sendMessageSchema = z.object({
+  msgtype: z.string().min(1).max(100).default("m.text"),
+  body: z.string().min(1).max(65536),
+  format: z.string().max(100).optional(),
+  formatted_body: z.string().max(65536).optional(),
+});
+
+export const roomMemberActionSchema = z.object({
+  user_id: z.string().min(1).max(500).regex(/^@[^:]+:.+$/),
+  reason: z.string().max(1000).optional(),
+});
+
+export const roomAliasSchema = z.object({
+  alias: z.string().min(1).max(500).regex(/^#[^:]+:.+$/, "Must be a full room alias (#alias:server)"),
+  room_id: z.string().min(1).max(500).optional(),
+});
+
+export const serverPrepSchema = z.object({
+  serverName: z.string().min(1).max(500),
+  publicBaseUrl: z.string().url().max(2048),
+  bindPort: z.number().int().min(1).max(65535).default(8008),
+  database: z.enum(["sqlite", "postgresql"]).default("postgresql"),
+  postgresHost: z.string().max(500).optional(),
+  postgresPort: z.number().int().min(1).max(65535).optional(),
+  postgresDb: z.string().max(100).optional(),
+  postgresUser: z.string().max(100).optional(),
+  postgresPassword: z.string().max(500).optional(),
+  mediaStorePath: z.string().max(500).default("/data/media_store"),
+  signingKeyPath: z.string().max(500).default("/data/signing.key"),
+  enableRegistration: z.boolean().default(false),
+  registrationRequiresToken: z.boolean().default(true),
+  trustedKeyServers: z.array(z.string().max(500)).default(["matrix.org"]),
+  reverseProxy: z.boolean().default(true),
+  tlsTermination: z.enum(["reverse_proxy", "synapse", "none"]).default("reverse_proxy"),
+  appserviceConfigDir: z.string().max(500).optional(),
+  logLevel: z.enum(["DEBUG", "INFO", "WARNING", "ERROR"]).default("INFO"),
+  enableTurn: z.boolean().default(false),
+  turnUris: z.array(z.string().max(500)).optional(),
+  turnSharedSecret: z.string().max(500).optional(),
+  enableSmtp: z.boolean().default(false),
+  smtpHost: z.string().max(500).optional(),
+  smtpPort: z.number().int().min(1).max(65535).optional(),
+  smtpUser: z.string().max(500).optional(),
+  smtpPassword: z.string().max(500).optional(),
+  smtpFrom: z.string().max(500).optional(),
+  smtpRequireTls: z.boolean().optional(),
+  maxUploadSize: z.string().max(20).default("50M"),
+  urlPreviewEnabled: z.boolean().default(true),
+  dataDir: z.string().max(500).default("./synapse-data"),
+  containerName: z.string().max(100).default("synapse"),
+  networkName: z.string().max(100).default("matrix-net"),
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateTokenInput = z.infer<typeof createTokenSchema>;
 export type UpdateTokenInput = z.infer<typeof updateTokenSchema>;
@@ -198,3 +267,9 @@ export type BotRoomAssignmentInput = z.infer<typeof botRoomAssignmentSchema>;
 export type BotFeatureInput = z.infer<typeof botFeatureSchema>;
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 export type ModifyUserInput = z.infer<typeof modifyUserSchema>;
+export type AdminMatrixLoginInput = z.infer<typeof adminMatrixLoginSchema>;
+export type CreateRoomInput = z.infer<typeof createRoomSchema>;
+export type SendMessageInput = z.infer<typeof sendMessageSchema>;
+export type RoomMemberActionInput = z.infer<typeof roomMemberActionSchema>;
+export type RoomAliasInput = z.infer<typeof roomAliasSchema>;
+export type ServerPrepInput = z.infer<typeof serverPrepSchema>;

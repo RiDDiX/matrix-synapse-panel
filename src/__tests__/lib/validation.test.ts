@@ -9,6 +9,12 @@ import {
   rotateServerTokenSchema,
   createUserSchema,
   modifyUserSchema,
+  adminMatrixLoginSchema,
+  createRoomSchema,
+  sendMessageSchema,
+  roomMemberActionSchema,
+  roomAliasSchema,
+  serverPrepSchema,
 } from "@/lib/validation";
 
 describe("loginSchema", () => {
@@ -307,5 +313,204 @@ describe("modifyUserSchema", () => {
 
   it("rejects short password", () => {
     expect(modifyUserSchema.safeParse({ password: "short" }).success).toBe(false);
+  });
+});
+
+describe("adminMatrixLoginSchema", () => {
+  it("accepts valid Matrix user ID and password", () => {
+    const result = adminMatrixLoginSchema.safeParse({ userId: "@admin:example.com", password: "secret" });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects userId without @ prefix", () => {
+    expect(adminMatrixLoginSchema.safeParse({ userId: "admin:example.com", password: "secret" }).success).toBe(false);
+  });
+
+  it("rejects userId without colon separator", () => {
+    expect(adminMatrixLoginSchema.safeParse({ userId: "@admin", password: "secret" }).success).toBe(false);
+  });
+
+  it("rejects empty password", () => {
+    expect(adminMatrixLoginSchema.safeParse({ userId: "@admin:example.com", password: "" }).success).toBe(false);
+  });
+
+  it("rejects missing userId", () => {
+    expect(adminMatrixLoginSchema.safeParse({ password: "secret" }).success).toBe(false);
+  });
+});
+
+describe("createRoomSchema", () => {
+  it("accepts minimal room creation (no fields required)", () => {
+    const result = createRoomSchema.safeParse({});
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts full room creation", () => {
+    const result = createRoomSchema.safeParse({
+      name: "General",
+      topic: "General discussion",
+      room_alias_name: "general",
+      visibility: "public",
+      preset: "public_chat",
+      invite: ["@user:example.com"],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects invalid visibility", () => {
+    expect(createRoomSchema.safeParse({ visibility: "hidden" }).success).toBe(false);
+  });
+
+  it("rejects invalid preset", () => {
+    expect(createRoomSchema.safeParse({ preset: "secret_chat" }).success).toBe(false);
+  });
+
+  it("rejects invalid invite user IDs", () => {
+    expect(createRoomSchema.safeParse({ invite: ["notamatrixid"] }).success).toBe(false);
+  });
+
+  it("accepts valid invite user IDs", () => {
+    expect(createRoomSchema.safeParse({ invite: ["@alice:example.com", "@bob:other.org"] }).success).toBe(true);
+  });
+});
+
+describe("sendMessageSchema", () => {
+  it("accepts text message", () => {
+    const result = sendMessageSchema.safeParse({ body: "Hello world" });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts message with custom msgtype", () => {
+    const result = sendMessageSchema.safeParse({ msgtype: "m.notice", body: "Notice" });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts HTML formatted message", () => {
+    const result = sendMessageSchema.safeParse({
+      body: "Hello",
+      format: "org.matrix.custom.html",
+      formatted_body: "<b>Hello</b>",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects empty body", () => {
+    expect(sendMessageSchema.safeParse({ body: "" }).success).toBe(false);
+  });
+});
+
+describe("roomMemberActionSchema", () => {
+  it("accepts valid user_id", () => {
+    const result = roomMemberActionSchema.safeParse({ user_id: "@user:example.com" });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts user_id with reason", () => {
+    const result = roomMemberActionSchema.safeParse({ user_id: "@user:example.com", reason: "Spam" });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects invalid user_id", () => {
+    expect(roomMemberActionSchema.safeParse({ user_id: "user" }).success).toBe(false);
+  });
+
+  it("rejects missing user_id", () => {
+    expect(roomMemberActionSchema.safeParse({}).success).toBe(false);
+  });
+});
+
+describe("roomAliasSchema", () => {
+  it("accepts valid room alias", () => {
+    const result = roomAliasSchema.safeParse({ alias: "#general:example.com" });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects alias without # prefix", () => {
+    expect(roomAliasSchema.safeParse({ alias: "general:example.com" }).success).toBe(false);
+  });
+
+  it("rejects alias without colon separator", () => {
+    expect(roomAliasSchema.safeParse({ alias: "#general" }).success).toBe(false);
+  });
+
+  it("accepts alias with room_id", () => {
+    const result = roomAliasSchema.safeParse({ alias: "#general:example.com", room_id: "!abc:example.com" });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("serverPrepSchema", () => {
+  it("accepts valid minimal config", () => {
+    const result = serverPrepSchema.safeParse({
+      serverName: "example.com",
+      publicBaseUrl: "https://matrix.example.com",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects missing serverName", () => {
+    expect(serverPrepSchema.safeParse({ publicBaseUrl: "https://matrix.example.com" }).success).toBe(false);
+  });
+
+  it("rejects invalid publicBaseUrl", () => {
+    expect(serverPrepSchema.safeParse({ serverName: "example.com", publicBaseUrl: "notaurl" }).success).toBe(false);
+  });
+
+  it("applies defaults for optional fields", () => {
+    const result = serverPrepSchema.safeParse({
+      serverName: "example.com",
+      publicBaseUrl: "https://matrix.example.com",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.bindPort).toBe(8008);
+      expect(result.data.database).toBe("postgresql");
+      expect(result.data.logLevel).toBe("INFO");
+      expect(result.data.containerName).toBe("synapse");
+    }
+  });
+
+  it("rejects invalid database type", () => {
+    expect(serverPrepSchema.safeParse({
+      serverName: "example.com",
+      publicBaseUrl: "https://matrix.example.com",
+      database: "mysql",
+    }).success).toBe(false);
+  });
+
+  it("rejects invalid log level", () => {
+    expect(serverPrepSchema.safeParse({
+      serverName: "example.com",
+      publicBaseUrl: "https://matrix.example.com",
+      logLevel: "TRACE",
+    }).success).toBe(false);
+  });
+
+  it("accepts full config with all options", () => {
+    const result = serverPrepSchema.safeParse({
+      serverName: "my.server.com",
+      publicBaseUrl: "https://matrix.my.server.com",
+      bindPort: 8448,
+      database: "postgresql",
+      postgresHost: "db",
+      postgresPort: 5432,
+      postgresDb: "synapse",
+      postgresUser: "synapse",
+      postgresPassword: "strong",
+      enableRegistration: true,
+      registrationRequiresToken: true,
+      enableTurn: true,
+      turnUris: ["turn:turn.example.com:3478"],
+      turnSharedSecret: "secret",
+      enableSmtp: true,
+      smtpHost: "smtp.example.com",
+      smtpPort: 587,
+      smtpUser: "user",
+      smtpPassword: "pass",
+      smtpFrom: "Matrix <noreply@example.com>",
+      smtpRequireTls: true,
+      logLevel: "WARNING",
+    });
+    expect(result.success).toBe(true);
   });
 });

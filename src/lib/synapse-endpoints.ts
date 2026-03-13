@@ -55,11 +55,134 @@ export function adminLeaveRoom(roomIdOrAlias: string): string {
   return `/_synapse/admin/v1/leave/${encodeURIComponent(roomIdOrAlias)}`;
 }
 
+// --- Synapse Admin API: Room detail ---
+
+// Room detail: https://element-hq.github.io/synapse/latest/admin_api/rooms.html#room-details-api
+export function adminRoomDetail(roomId: string): string {
+  return `/_synapse/admin/v1/rooms/${encodeURIComponent(roomId)}`;
+}
+
+// Delete room: https://element-hq.github.io/synapse/latest/admin_api/rooms.html#delete-room-api
+export function adminDeleteRoom(roomId: string): string {
+  return `/_synapse/admin/v1/rooms/${encodeURIComponent(roomId)}`;
+}
+
+// Room state: https://element-hq.github.io/synapse/latest/admin_api/rooms.html#room-state-api
+export function adminRoomState(roomId: string): string {
+  return `/_synapse/admin/v1/rooms/${encodeURIComponent(roomId)}/state`;
+}
+
 // --- Matrix Client-Server API (public) ---
+// Ref: https://spec.matrix.org/latest/client-server-api/
 
 export const CLIENT_VERSIONS = "/_matrix/client/versions";
 export const CLIENT_REGISTER = "/_matrix/client/v3/register";
 export const CLIENT_WHOAMI = "/_matrix/client/v3/account/whoami";
+
+// Login: https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3login
+export const CLIENT_LOGIN = "/_matrix/client/v3/login";
+
+// Login flows discovery: https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3login
+export const CLIENT_LOGIN_FLOWS = "/_matrix/client/v3/login";
+
+// Create room: https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3createroom
+export const CLIENT_CREATE_ROOM = "/_matrix/client/v3/createRoom";
+
+// Joined rooms: https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3joined_rooms
+export const CLIENT_JOINED_ROOMS = "/_matrix/client/v3/joined_rooms";
+
+// Room messages: https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3roomsroomidmessages
+export function clientRoomMessages(roomId: string): string {
+  return `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/messages`;
+}
+
+// Send message event: https://spec.matrix.org/latest/client-server-api/#put_matrixclientv3roomsroomidsendeventtypetxnid
+export function clientSendEvent(roomId: string, eventType: string, txnId: string): string {
+  return `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/send/${encodeURIComponent(eventType)}/${encodeURIComponent(txnId)}`;
+}
+
+// Send state event: https://spec.matrix.org/latest/client-server-api/#put_matrixclientv3roomsroomidstateeventtypestatekey
+export function clientSendStateEvent(roomId: string, eventType: string, stateKey = ""): string {
+  return `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/state/${encodeURIComponent(eventType)}/${encodeURIComponent(stateKey)}`;
+}
+
+// Get state event: https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3roomsroomidstateeventtypestatekey
+export function clientGetStateEvent(roomId: string, eventType: string, stateKey = ""): string {
+  return `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/state/${encodeURIComponent(eventType)}/${encodeURIComponent(stateKey)}`;
+}
+
+// Get full room state: https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3roomsroomidstate
+export function clientRoomState(roomId: string): string {
+  return `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/state`;
+}
+
+// Room members: https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3roomsroomidmembers
+export function clientRoomMembers(roomId: string): string {
+  return `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/members`;
+}
+
+// Joined members: https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3roomsroomidjoined_members
+export function clientJoinedMembers(roomId: string): string {
+  return `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/joined_members`;
+}
+
+// Join room: https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3joinroomidoralias
+export function clientJoinRoom(roomIdOrAlias: string): string {
+  return `/_matrix/client/v3/join/${encodeURIComponent(roomIdOrAlias)}`;
+}
+
+// Leave room: https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3roomsroomidleave
+export function clientLeaveRoom(roomId: string): string {
+  return `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/leave`;
+}
+
+// Invite user: https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3roomsroomidinvite
+export function clientInviteUser(roomId: string): string {
+  return `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/invite`;
+}
+
+// Kick user: https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3roomsroomidkick
+export function clientKickUser(roomId: string): string {
+  return `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/kick`;
+}
+
+// Ban user: https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3roomsroomidban
+export function clientBanUser(roomId: string): string {
+  return `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/ban`;
+}
+
+// Unban user: https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3roomsroomidunban
+export function clientUnbanUser(roomId: string): string {
+  return `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/unban`;
+}
+
+// Room aliases: https://spec.matrix.org/latest/client-server-api/#put_matrixclientv3abortroomalias
+export function clientRoomAlias(alias: string): string {
+  return `/_matrix/client/v3/directory/room/${encodeURIComponent(alias)}`;
+}
+
+// Room upgrade: https://spec.matrix.org/latest/client-server-api/#post_matrixclientv3roomsroomidupgrade
+export function clientUpgradeRoom(roomId: string): string {
+  return `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/upgrade`;
+}
+
+// Get single event: https://spec.matrix.org/latest/client-server-api/#get_matrixclientv3roomsroomideventeventid
+export function clientGetEvent(roomId: string, eventId: string): string {
+  return `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/event/${encodeURIComponent(eventId)}`;
+}
+
+// Relations (threads): https://spec.matrix.org/v1.11/client-server-api/#get_matrixclientv1roomsroomidrelationseventid
+export function clientRelations(roomId: string, eventId: string, relType?: string, eventType?: string): string {
+  let path = `/_matrix/client/v1/rooms/${encodeURIComponent(roomId)}/relations/${encodeURIComponent(eventId)}`;
+  if (relType) path += `/${encodeURIComponent(relType)}`;
+  if (relType && eventType) path += `/${encodeURIComponent(eventType)}`;
+  return path;
+}
+
+// Thread roots (via /messages filter): https://spec.matrix.org/v1.11/client-server-api/#threading
+// Threads are fetched using GET /messages with a filter for m.thread relations.
+// There is no separate "list threads" endpoint — threads are discovered via
+// the org.matrix.msc3856 filter or by filtering messages.
 
 export function clientTokenValidity(token: string): string {
   return `/_matrix/client/v1/register/m.login.registration_token/validity?token=${encodeURIComponent(token)}`;
