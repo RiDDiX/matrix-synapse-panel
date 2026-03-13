@@ -15,6 +15,12 @@ import {
   roomMemberActionSchema,
   roomAliasSchema,
   serverPrepSchema,
+  purgeHistorySchema,
+  rateLimitOverrideSchema,
+  deleteMediaByDateSchema,
+  mediaActionSchema,
+  createSpaceSchema,
+  spaceChildSchema,
 } from "@/lib/validation";
 
 describe("loginSchema", () => {
@@ -511,6 +517,153 @@ describe("serverPrepSchema", () => {
       smtpRequireTls: true,
       logLevel: "WARNING",
     });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("purgeHistorySchema", () => {
+  it("accepts valid input with timestamp", () => {
+    const result = purgeHistorySchema.safeParse({ purge_up_to_ts: 1700000000000 });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts valid input with event ID", () => {
+    const result = purgeHistorySchema.safeParse({ purge_up_to_event_id: "$abc123" });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects empty input (no ts or event_id)", () => {
+    const result = purgeHistorySchema.safeParse({});
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts delete_local_events flag", () => {
+    const result = purgeHistorySchema.safeParse({ purge_up_to_ts: 1700000000000, delete_local_events: true });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("rateLimitOverrideSchema", () => {
+  it("accepts valid input", () => {
+    const result = rateLimitOverrideSchema.safeParse({ messages_per_second: 10, burst_count: 50 });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects negative values", () => {
+    const result = rateLimitOverrideSchema.safeParse({ messages_per_second: -1, burst_count: 50 });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects missing fields", () => {
+    const result = rateLimitOverrideSchema.safeParse({ messages_per_second: 10 });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects values exceeding max", () => {
+    const result = rateLimitOverrideSchema.safeParse({ messages_per_second: 200000, burst_count: 50 });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("deleteMediaByDateSchema", () => {
+  it("accepts valid input", () => {
+    const result = deleteMediaByDateSchema.safeParse({ before_ts: 1700000000000 });
+    expect(result.success).toBe(true);
+  });
+
+  it("defaults keep_profiles to true", () => {
+    const result = deleteMediaByDateSchema.safeParse({ before_ts: 1700000000000 });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.keep_profiles).toBe(true);
+    }
+  });
+
+  it("rejects missing before_ts", () => {
+    const result = deleteMediaByDateSchema.safeParse({});
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("mediaActionSchema", () => {
+  it("accepts valid input", () => {
+    const result = mediaActionSchema.safeParse({ server_name: "example.com", media_id: "abc123" });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects empty server_name", () => {
+    const result = mediaActionSchema.safeParse({ server_name: "", media_id: "abc123" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects empty media_id", () => {
+    const result = mediaActionSchema.safeParse({ server_name: "example.com", media_id: "" });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("createSpaceSchema", () => {
+  it("accepts minimal valid input", () => {
+    const result = createSpaceSchema.safeParse({ name: "My Space" });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts full input", () => {
+    const result = createSpaceSchema.safeParse({
+      name: "My Space",
+      topic: "A space for testing",
+      room_alias_name: "my-space",
+      visibility: "public",
+      invite: ["@user:example.com"],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects empty name", () => {
+    const result = createSpaceSchema.safeParse({ name: "" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects invalid alias characters", () => {
+    const result = createSpaceSchema.safeParse({ name: "Space", room_alias_name: "INVALID ALIAS!" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects invalid invite format", () => {
+    const result = createSpaceSchema.safeParse({ name: "Space", invite: ["notavalidmxid"] });
+    expect(result.success).toBe(false);
+  });
+
+  it("defaults visibility to private", () => {
+    const result = createSpaceSchema.safeParse({ name: "Space" });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.visibility).toBe("private");
+    }
+  });
+});
+
+describe("spaceChildSchema", () => {
+  it("accepts valid input", () => {
+    const result = spaceChildSchema.safeParse({ room_id: "!abc:example.com" });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects room_id not starting with !", () => {
+    const result = spaceChildSchema.safeParse({ room_id: "#alias:example.com" });
+    expect(result.success).toBe(false);
+  });
+
+  it("defaults suggested to false", () => {
+    const result = spaceChildSchema.safeParse({ room_id: "!abc:example.com" });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.suggested).toBe(false);
+    }
+  });
+
+  it("accepts optional order", () => {
+    const result = spaceChildSchema.safeParse({ room_id: "!abc:example.com", order: "aaa", suggested: true });
     expect(result.success).toBe(true);
   });
 });

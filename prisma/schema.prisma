@@ -16,6 +16,8 @@ model AdminUser {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  permissions AdminPermission[]
+
   @@map("admin_users")
 }
 
@@ -56,6 +58,8 @@ model ManagedServer {
   auditLogs       AuditLog[]
   integrations    InstalledIntegration[]
   bots            BotDefinition[]
+  webhooks        WebhookEndpoint[]
+  adminPermissions AdminPermission[]
 
   @@index([serverName])
   @@index([slug])
@@ -295,4 +299,40 @@ model BotFeatureFlag {
   @@unique([botId, featureKey, scope, scopeId])
   @@index([botId])
   @@map("bot_feature_flags")
+}
+
+model WebhookEndpoint {
+  id          String   @id @default(cuid())
+  name        String
+  url         String
+  secret      String?
+  events      String   @db.Text
+  enabled     Boolean  @default(true)
+  serverId    String?  @map("server_id")
+  server      ManagedServer? @relation(fields: [serverId], references: [id], onDelete: SetNull)
+  lastStatus  Int?     @map("last_status")
+  lastError   String?  @map("last_error")
+  lastFiredAt DateTime? @map("last_fired_at")
+  createdBy   String?  @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([serverId])
+  @@index([enabled])
+  @@map("webhook_endpoints")
+}
+
+model AdminPermission {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  user       AdminUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  serverId   String?  @map("server_id")
+  server     ManagedServer? @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  permission String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, serverId, permission])
+  @@index([userId])
+  @@index([serverId])
+  @@map("admin_permissions")
 }

@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
-import { LayoutDashboard, KeyRound, ScrollText, Activity, Paintbrush, Puzzle, Bot, Stethoscope, Server, Users, LogOut, Moon, Sun, ChevronDown, DoorOpen, Shield, Wrench } from "lucide-react";
+import { LayoutDashboard, KeyRound, ScrollText, Activity, Paintbrush, Puzzle, Bot, Stethoscope, Server, Users, LogOut, Moon, Sun, ChevronDown, DoorOpen, Shield, Wrench, Image, Globe, Flag, Trash2, Database, Download, Boxes, Bell, BarChart3, UserCog } from "lucide-react";
 import { useTheme } from "next-themes";
 import { ServerProvider, useServerContext } from "@/lib/server-context";
 
@@ -17,9 +17,19 @@ const navItems = [
   { href: "/admin/integrations", label: "Integrations", icon: Puzzle },
   { href: "/admin/bots", label: "Bots", icon: Bot },
   { href: "/admin/branding", label: "Branding", icon: Paintbrush },
+  { href: "/admin/rooms", label: "Rooms", icon: DoorOpen },
+  { href: "/admin/spaces", label: "Spaces", icon: Boxes },
+  { href: "/admin/media", label: "Media", icon: Image },
+  { href: "/admin/federation", label: "Federation", icon: Globe },
+  { href: "/admin/event-reports", label: "Event Reports", icon: Flag },
+  { href: "/admin/purge-history", label: "Purge History", icon: Trash2 },
+  { href: "/admin/background-updates", label: "Background Updates", icon: Database },
+  { href: "/admin/webhooks", label: "Webhooks", icon: Bell },
+  { href: "/admin/statistics", label: "Statistics", icon: BarChart3 },
+  { href: "/admin/permissions", label: "Permissions", icon: UserCog },
   { href: "/admin/audit", label: "Audit Log", icon: ScrollText },
   { href: "/admin/diagnostics", label: "Diagnostics", icon: Activity },
-  { href: "/admin/rooms", label: "Rooms", icon: DoorOpen },
+  { href: "/admin/export", label: "Export", icon: Download },
   { href: "/admin/matrix-login", label: "Admin Login", icon: Shield },
   { href: "/admin/server-prep", label: "Server Prep", icon: Wrench },
   { href: "/admin/integrations/diagnostics", label: "Int. Diagnostics", icon: Stethoscope },

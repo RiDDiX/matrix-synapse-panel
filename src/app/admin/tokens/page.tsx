@@ -10,7 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
 import { getTokenStatus } from "@/lib/types";
 import type { TokenWithMeta, TokenStatus } from "@/lib/types";
-import { Plus, Copy, Trash2, Ban, Link2, RefreshCw } from "lucide-react";
+import { Plus, Copy, Trash2, Ban, Link2, RefreshCw, QrCode, Share2, X } from "lucide-react";
+import QRCode from "qrcode";
 import { useServerContext } from "@/lib/server-context";
 
 const statusVariant: Record<TokenStatus, "success" | "warning" | "destructive" | "secondary"> = {
@@ -25,6 +26,8 @@ export default function TokensPage() {
   const [tokens, setTokens] = useState<TokenWithMeta[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [shareToken, setShareToken] = useState<string | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchTokens = useCallback(async () => {
@@ -95,6 +98,17 @@ export default function TokensPage() {
     toast({ title: "Invite link copied" });
   }
 
+  async function showShare(token: string) {
+    setShareToken(token);
+    const url = `${window.location.origin}/register?token=${encodeURIComponent(token)}`;
+    try {
+      const dataUrl = await QRCode.toDataURL(url, { width: 300, margin: 2, color: { dark: "#000000", light: "#ffffff" } });
+      setQrDataUrl(dataUrl);
+    } catch {
+      setQrDataUrl(null);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -157,6 +171,9 @@ export default function TokensPage() {
                     <Button variant="ghost" size="icon" title="Copy invite link" onClick={() => copyInviteLink(t.token)}>
                       <Link2 className="h-4 w-4" />
                     </Button>
+                    <Button variant="ghost" size="icon" title="QR code & share" onClick={() => showShare(t.token)}>
+                      <QrCode className="h-4 w-4" />
+                    </Button>
                     {status === "valid" && (
                       <Button variant="ghost" size="icon" title="Disable" onClick={() => handleDisable(t.token)}>
                         <Ban className="h-4 w-4" />
@@ -170,6 +187,45 @@ export default function TokensPage() {
               </Card>
             );
           })}
+        </div>
+      )}
+      {shareToken && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShareToken(null)}>
+          <div className="bg-background rounded-lg border shadow-lg p-6 max-w-sm w-full mx-4 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold flex items-center gap-2"><Share2 className="h-4 w-4" /> Share Token</h3>
+              <Button variant="ghost" size="icon" onClick={() => setShareToken(null)}><X className="h-4 w-4" /></Button>
+            </div>
+            {qrDataUrl && (
+              <div className="flex justify-center">
+                <img src={qrDataUrl} alt="QR Code" className="rounded-lg" />
+              </div>
+            )}
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">Token</label>
+              <div className="flex gap-2">
+                <code className="flex-1 rounded bg-muted px-3 py-2 text-xs font-mono truncate">{shareToken}</code>
+                <Button variant="outline" size="sm" onClick={() => copyToken(shareToken)}><Copy className="h-3 w-3" /></Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">Invite Link</label>
+              <div className="flex gap-2">
+                <code className="flex-1 rounded bg-muted px-3 py-2 text-xs font-mono truncate">{`${window.location.origin}/register?token=${encodeURIComponent(shareToken)}`}</code>
+                <Button variant="outline" size="sm" onClick={() => copyInviteLink(shareToken)}><Copy className="h-3 w-3" /></Button>
+              </div>
+            </div>
+            {qrDataUrl && (
+              <Button variant="outline" size="sm" className="w-full" onClick={() => {
+                const a = document.createElement("a");
+                a.href = qrDataUrl;
+                a.download = `token-${shareToken.slice(0, 8)}-qr.png`;
+                a.click();
+              }}>
+                Download QR Code
+              </Button>
+            )}
+          </div>
         </div>
       )}
     </div>

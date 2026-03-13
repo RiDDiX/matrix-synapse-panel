@@ -252,6 +252,43 @@ export const serverPrepSchema = z.object({
   networkName: z.string().max(100).default("matrix-net"),
 });
 
+export const purgeHistorySchema = z.object({
+  purge_up_to_ts: z.number().int().positive().optional(),
+  purge_up_to_event_id: z.string().max(500).optional(),
+  delete_local_events: z.boolean().default(false),
+}).refine((d) => d.purge_up_to_ts || d.purge_up_to_event_id, {
+  message: "Either purge_up_to_ts or purge_up_to_event_id is required",
+});
+
+export const rateLimitOverrideSchema = z.object({
+  messages_per_second: z.number().int().min(0).max(100000),
+  burst_count: z.number().int().min(0).max(100000),
+});
+
+export const deleteMediaByDateSchema = z.object({
+  before_ts: z.number().int().positive(),
+  keep_profiles: z.boolean().default(true),
+});
+
+export const mediaActionSchema = z.object({
+  server_name: z.string().min(1).max(500),
+  media_id: z.string().min(1).max(500),
+});
+
+export const createSpaceSchema = z.object({
+  name: z.string().min(1).max(500),
+  topic: z.string().max(2000).optional(),
+  room_alias_name: z.string().max(255).regex(/^[a-z0-9._=\-/]+$/).optional(),
+  visibility: z.enum(["public", "private"]).default("private"),
+  invite: z.array(z.string().regex(/^@[^:]+:.+$/)).max(100).optional(),
+});
+
+export const spaceChildSchema = z.object({
+  room_id: z.string().min(1).max(500).regex(/^!/, "Must be a valid Matrix room ID starting with !"),
+  suggested: z.boolean().default(false),
+  order: z.string().max(50).optional(),
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateTokenInput = z.infer<typeof createTokenSchema>;
 export type UpdateTokenInput = z.infer<typeof updateTokenSchema>;
@@ -273,3 +310,9 @@ export type SendMessageInput = z.infer<typeof sendMessageSchema>;
 export type RoomMemberActionInput = z.infer<typeof roomMemberActionSchema>;
 export type RoomAliasInput = z.infer<typeof roomAliasSchema>;
 export type ServerPrepInput = z.infer<typeof serverPrepSchema>;
+export type PurgeHistoryInput = z.infer<typeof purgeHistorySchema>;
+export type RateLimitOverrideInput = z.infer<typeof rateLimitOverrideSchema>;
+export type DeleteMediaByDateInput = z.infer<typeof deleteMediaByDateSchema>;
+export type MediaActionInput = z.infer<typeof mediaActionSchema>;
+export type CreateSpaceInput = z.infer<typeof createSpaceSchema>;
+export type SpaceChildInput = z.infer<typeof spaceChildSchema>;

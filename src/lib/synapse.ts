@@ -24,6 +24,30 @@ import {
   clientTokenValidity,
   buildUrl,
   classifyFailure,
+  adminRoomMedia,
+  adminUserMedia,
+  adminQuarantineMedia,
+  adminQuarantineRoomMedia,
+  adminQuarantineUserMedia,
+  adminUnquarantineMedia,
+  adminDeleteMedia,
+  adminDeleteMediaByDate,
+  adminProtectMedia,
+  adminUnprotectMedia,
+  ADMIN_FEDERATION_DESTINATIONS,
+  adminFederationDestination,
+  adminFederationDestinationRooms,
+  adminFederationResetConnection,
+  ADMIN_EVENT_REPORTS,
+  adminEventReport,
+  adminDeleteEventReport,
+  adminPurgeHistory,
+  adminPurgeHistoryStatus,
+  ADMIN_BACKGROUND_UPDATES_STATUS,
+  ADMIN_BACKGROUND_UPDATES_ENABLED,
+  ADMIN_BACKGROUND_UPDATES_START_JOB,
+  adminUserRateLimit,
+  ADMIN_STATISTICS_USERS_MEDIA,
 } from "./synapse-endpoints";
 
 export interface SynapseConnection {
@@ -913,5 +937,379 @@ export async function reactivateUser(
       headers: adminHeaders(c),
       body: JSON.stringify({ deactivated: false, password }),
     }
+  );
+}
+
+// --- Media management (Admin API) ---
+
+export interface MediaInfo {
+  media_id: string;
+  media_type: string;
+  media_length: number;
+  upload_name: string | null;
+  created_ts: number;
+  last_access_ts: number | null;
+  quarantined_by: string | null;
+  safe_from_quarantine: boolean;
+  user_id: string;
+}
+
+export async function listRoomMedia(
+  roomId: string,
+  conn?: SynapseConnection
+): Promise<{ local: string[]; remote: string[] }> {
+  const c = conn ?? getDefaultConnection();
+  return synapseRequest<{ local: string[]; remote: string[] }>(
+    c.internalUrl,
+    adminRoomMedia(roomId),
+    { method: "GET", headers: adminHeaders(c) }
+  );
+}
+
+export async function listUserMedia(
+  userId: string,
+  params: { limit?: number; from?: number; order_by?: string; dir?: string } = {},
+  conn?: SynapseConnection
+): Promise<{ media: MediaInfo[]; total: number; next_token?: number }> {
+  const c = conn ?? getDefaultConnection();
+  const query = new URLSearchParams();
+  if (params.limit) query.set("limit", String(params.limit));
+  if (params.from !== undefined) query.set("from", String(params.from));
+  if (params.order_by) query.set("order_by", params.order_by);
+  if (params.dir) query.set("dir", params.dir);
+  const qs = query.toString();
+  const path = qs ? `${adminUserMedia(userId)}?${qs}` : adminUserMedia(userId);
+  return synapseRequest<{ media: MediaInfo[]; total: number; next_token?: number }>(
+    c.internalUrl, path, { method: "GET", headers: adminHeaders(c) }
+  );
+}
+
+export async function quarantineMedia(
+  serverName: string, mediaId: string, conn?: SynapseConnection
+): Promise<void> {
+  const c = conn ?? getDefaultConnection();
+  await synapseRequest<Record<string, unknown>>(
+    c.internalUrl, adminQuarantineMedia(serverName, mediaId),
+    { method: "POST", headers: adminHeaders(c), body: "{}" }
+  );
+}
+
+export async function quarantineRoomMedia(
+  roomId: string, conn?: SynapseConnection
+): Promise<{ num_quarantined: number }> {
+  const c = conn ?? getDefaultConnection();
+  return synapseRequest<{ num_quarantined: number }>(
+    c.internalUrl, adminQuarantineRoomMedia(roomId),
+    { method: "POST", headers: adminHeaders(c), body: "{}" }
+  );
+}
+
+export async function quarantineUserMedia(
+  userId: string, conn?: SynapseConnection
+): Promise<{ num_quarantined: number }> {
+  const c = conn ?? getDefaultConnection();
+  return synapseRequest<{ num_quarantined: number }>(
+    c.internalUrl, adminQuarantineUserMedia(userId),
+    { method: "POST", headers: adminHeaders(c), body: "{}" }
+  );
+}
+
+export async function unquarantineMedia(
+  serverName: string, mediaId: string, conn?: SynapseConnection
+): Promise<void> {
+  const c = conn ?? getDefaultConnection();
+  await synapseRequest<Record<string, unknown>>(
+    c.internalUrl, adminUnquarantineMedia(serverName, mediaId),
+    { method: "POST", headers: adminHeaders(c), body: "{}" }
+  );
+}
+
+export async function deleteMedia(
+  serverName: string, mediaId: string, conn?: SynapseConnection
+): Promise<void> {
+  const c = conn ?? getDefaultConnection();
+  await synapseRequest<Record<string, unknown>>(
+    c.internalUrl, adminDeleteMedia(serverName, mediaId),
+    { method: "DELETE", headers: adminHeaders(c) }
+  );
+}
+
+export async function deleteMediaByDate(
+  serverName: string, beforeTs: number, keepProfiles: boolean = true,
+  conn?: SynapseConnection
+): Promise<{ total: number }> {
+  const c = conn ?? getDefaultConnection();
+  const query = new URLSearchParams();
+  query.set("before_ts", String(beforeTs));
+  if (keepProfiles) query.set("keep_profiles", "true");
+  return synapseRequest<{ total: number }>(
+    c.internalUrl, `${adminDeleteMediaByDate(serverName)}?${query.toString()}`,
+    { method: "POST", headers: adminHeaders(c), body: "{}" }
+  );
+}
+
+export async function protectMedia(mediaId: string, conn?: SynapseConnection): Promise<void> {
+  const c = conn ?? getDefaultConnection();
+  await synapseRequest<Record<string, unknown>>(
+    c.internalUrl, adminProtectMedia(mediaId),
+    { method: "POST", headers: adminHeaders(c), body: "{}" }
+  );
+}
+
+export async function unprotectMedia(mediaId: string, conn?: SynapseConnection): Promise<void> {
+  const c = conn ?? getDefaultConnection();
+  await synapseRequest<Record<string, unknown>>(
+    c.internalUrl, adminUnprotectMedia(mediaId),
+    { method: "POST", headers: adminHeaders(c), body: "{}" }
+  );
+}
+
+// --- Federation monitoring (Admin API) ---
+
+export interface FederationDestination {
+  destination: string;
+  retry_last_ts: number;
+  retry_interval: number;
+  failure_ts: number | null;
+  last_successful_stream_ordering: number | null;
+}
+
+export async function listFederationDestinations(
+  params: { from?: number; limit?: number; destination?: string } = {},
+  conn?: SynapseConnection
+): Promise<{ destinations: FederationDestination[]; total: number; next_token?: number }> {
+  const c = conn ?? getDefaultConnection();
+  const query = new URLSearchParams();
+  if (params.from !== undefined) query.set("from", String(params.from));
+  if (params.limit) query.set("limit", String(params.limit));
+  if (params.destination) query.set("destination", params.destination);
+  const qs = query.toString();
+  const path = qs ? `${ADMIN_FEDERATION_DESTINATIONS}?${qs}` : ADMIN_FEDERATION_DESTINATIONS;
+  return synapseRequest<{ destinations: FederationDestination[]; total: number; next_token?: number }>(
+    c.internalUrl, path, { method: "GET", headers: adminHeaders(c) }
+  );
+}
+
+export async function getFederationDestination(
+  destination: string, conn?: SynapseConnection
+): Promise<FederationDestination> {
+  const c = conn ?? getDefaultConnection();
+  return synapseRequest<FederationDestination>(
+    c.internalUrl, adminFederationDestination(destination),
+    { method: "GET", headers: adminHeaders(c) }
+  );
+}
+
+export async function getFederationDestinationRooms(
+  destination: string, conn?: SynapseConnection
+): Promise<{ rooms: Array<{ room_id: string; stream_ordering: number }> }> {
+  const c = conn ?? getDefaultConnection();
+  return synapseRequest<{ rooms: Array<{ room_id: string; stream_ordering: number }> }>(
+    c.internalUrl, adminFederationDestinationRooms(destination),
+    { method: "GET", headers: adminHeaders(c) }
+  );
+}
+
+export async function resetFederationConnection(
+  destination: string, conn?: SynapseConnection
+): Promise<void> {
+  const c = conn ?? getDefaultConnection();
+  await synapseRequest<Record<string, unknown>>(
+    c.internalUrl, adminFederationResetConnection(destination),
+    { method: "POST", headers: adminHeaders(c), body: "{}" }
+  );
+}
+
+// --- Event reports (Admin API) ---
+
+export interface EventReport {
+  id: number;
+  received_ts: number;
+  room_id: string;
+  name: string | null;
+  event_id: string;
+  user_id: string;
+  reason: string | null;
+  score: number | null;
+  canonical_alias: string | null;
+  sender: string;
+  event_json?: Record<string, unknown>;
+}
+
+export async function listEventReports(
+  params: { from?: number; limit?: number; dir?: string; room_id?: string; user_id?: string } = {},
+  conn?: SynapseConnection
+): Promise<{ event_reports: EventReport[]; total: number; next_token?: number }> {
+  const c = conn ?? getDefaultConnection();
+  const query = new URLSearchParams();
+  if (params.from !== undefined) query.set("from", String(params.from));
+  if (params.limit) query.set("limit", String(params.limit));
+  if (params.dir) query.set("dir", params.dir);
+  if (params.room_id) query.set("room_id", params.room_id);
+  if (params.user_id) query.set("user_id", params.user_id);
+  const qs = query.toString();
+  const path = qs ? `${ADMIN_EVENT_REPORTS}?${qs}` : ADMIN_EVENT_REPORTS;
+  return synapseRequest<{ event_reports: EventReport[]; total: number; next_token?: number }>(
+    c.internalUrl, path, { method: "GET", headers: adminHeaders(c) }
+  );
+}
+
+export async function getEventReport(
+  reportId: string, conn?: SynapseConnection
+): Promise<EventReport> {
+  const c = conn ?? getDefaultConnection();
+  return synapseRequest<EventReport>(
+    c.internalUrl, adminEventReport(reportId),
+    { method: "GET", headers: adminHeaders(c) }
+  );
+}
+
+export async function deleteEventReport(
+  reportId: string, conn?: SynapseConnection
+): Promise<void> {
+  const c = conn ?? getDefaultConnection();
+  await synapseRequest<Record<string, unknown>>(
+    c.internalUrl, adminDeleteEventReport(reportId),
+    { method: "DELETE", headers: adminHeaders(c) }
+  );
+}
+
+// --- Purge history (Admin API) ---
+
+export async function purgeRoomHistory(
+  roomId: string,
+  params: { purge_up_to_event_id?: string; purge_up_to_ts?: number; delete_local_events?: boolean },
+  conn?: SynapseConnection
+): Promise<{ purge_id: string }> {
+  const c = conn ?? getDefaultConnection();
+  return synapseRequest<{ purge_id: string }>(
+    c.internalUrl, adminPurgeHistory(roomId),
+    { method: "POST", headers: adminHeaders(c), body: JSON.stringify(params) }
+  );
+}
+
+export async function getPurgeHistoryStatus(
+  purgeId: string, conn?: SynapseConnection
+): Promise<{ status: string }> {
+  const c = conn ?? getDefaultConnection();
+  return synapseRequest<{ status: string }>(
+    c.internalUrl, adminPurgeHistoryStatus(purgeId),
+    { method: "GET", headers: adminHeaders(c) }
+  );
+}
+
+// --- Background updates (Admin API) ---
+
+export interface BackgroundUpdateStatus {
+  enabled: boolean;
+  current_updates: Record<string, {
+    name: string;
+    total_item_count: number;
+    total_duration_ms: number;
+    average_items_per_ms: number;
+  }>;
+}
+
+export async function getBackgroundUpdatesStatus(
+  conn?: SynapseConnection
+): Promise<BackgroundUpdateStatus> {
+  const c = conn ?? getDefaultConnection();
+  return synapseRequest<BackgroundUpdateStatus>(
+    c.internalUrl, ADMIN_BACKGROUND_UPDATES_STATUS,
+    { method: "GET", headers: adminHeaders(c) }
+  );
+}
+
+export async function setBackgroundUpdatesEnabled(
+  enabled: boolean, conn?: SynapseConnection
+): Promise<{ enabled: boolean }> {
+  const c = conn ?? getDefaultConnection();
+  return synapseRequest<{ enabled: boolean }>(
+    c.internalUrl, ADMIN_BACKGROUND_UPDATES_ENABLED,
+    { method: "POST", headers: adminHeaders(c), body: JSON.stringify({ enabled }) }
+  );
+}
+
+export async function startBackgroundUpdateJob(
+  jobName: string, conn?: SynapseConnection
+): Promise<void> {
+  const c = conn ?? getDefaultConnection();
+  await synapseRequest<Record<string, unknown>>(
+    c.internalUrl, ADMIN_BACKGROUND_UPDATES_START_JOB,
+    { method: "POST", headers: adminHeaders(c), body: JSON.stringify({ job_name: jobName }) }
+  );
+}
+
+// --- Rate limit overrides (Admin API) ---
+
+export interface RateLimitOverride {
+  messages_per_second: number;
+  burst_count: number;
+}
+
+export async function getUserRateLimit(
+  userId: string, conn?: SynapseConnection
+): Promise<RateLimitOverride | null> {
+  const c = conn ?? getDefaultConnection();
+  try {
+    return await synapseRequest<RateLimitOverride>(
+      c.internalUrl, adminUserRateLimit(userId),
+      { method: "GET", headers: adminHeaders(c) }
+    );
+  } catch (e) {
+    if (e instanceof SynapseApiError && e.status === 404) return null;
+    throw e;
+  }
+}
+
+export async function setUserRateLimit(
+  userId: string, messagesPerSecond: number, burstCount: number,
+  conn?: SynapseConnection
+): Promise<RateLimitOverride> {
+  const c = conn ?? getDefaultConnection();
+  return synapseRequest<RateLimitOverride>(
+    c.internalUrl, adminUserRateLimit(userId),
+    {
+      method: "POST",
+      headers: adminHeaders(c),
+      body: JSON.stringify({ messages_per_second: messagesPerSecond, burst_count: burstCount }),
+    }
+  );
+}
+
+export async function deleteUserRateLimit(
+  userId: string, conn?: SynapseConnection
+): Promise<void> {
+  const c = conn ?? getDefaultConnection();
+  await synapseRequest<Record<string, unknown>>(
+    c.internalUrl, adminUserRateLimit(userId),
+    { method: "DELETE", headers: adminHeaders(c) }
+  );
+}
+
+// --- Statistics (Admin API) ---
+
+export interface UserMediaStats {
+  user_id: string;
+  displayname: string;
+  media_count: number;
+  media_length: number;
+}
+
+export async function getUsersMediaStatistics(
+  params: { from?: number; limit?: number; order_by?: string; dir?: string; search_term?: string } = {},
+  conn?: SynapseConnection
+): Promise<{ users: UserMediaStats[]; total: number; next_token?: number }> {
+  const c = conn ?? getDefaultConnection();
+  const query = new URLSearchParams();
+  if (params.from !== undefined) query.set("from", String(params.from));
+  if (params.limit) query.set("limit", String(params.limit));
+  if (params.order_by) query.set("order_by", params.order_by);
+  if (params.dir) query.set("dir", params.dir);
+  if (params.search_term) query.set("search_term", params.search_term);
+  const qs = query.toString();
+  const path = qs ? `${ADMIN_STATISTICS_USERS_MEDIA}?${qs}` : ADMIN_STATISTICS_USERS_MEDIA;
+  return synapseRequest<{ users: UserMediaStats[]; total: number; next_token?: number }>(
+    c.internalUrl, path, { method: "GET", headers: adminHeaders(c) }
   );
 }

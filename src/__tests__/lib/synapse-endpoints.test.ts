@@ -14,6 +14,30 @@ import {
   adminRoomDetail,
   adminDeleteRoom,
   adminRoomState,
+  adminRoomMedia,
+  adminUserMedia,
+  adminQuarantineMedia,
+  adminQuarantineRoomMedia,
+  adminQuarantineUserMedia,
+  adminUnquarantineMedia,
+  adminDeleteMedia,
+  adminDeleteMediaByDate,
+  adminProtectMedia,
+  adminUnprotectMedia,
+  ADMIN_FEDERATION_DESTINATIONS,
+  adminFederationDestination,
+  adminFederationDestinationRooms,
+  adminFederationResetConnection,
+  ADMIN_EVENT_REPORTS,
+  adminEventReport,
+  adminDeleteEventReport,
+  adminPurgeHistory,
+  adminPurgeHistoryStatus,
+  ADMIN_BACKGROUND_UPDATES_STATUS,
+  ADMIN_BACKGROUND_UPDATES_ENABLED,
+  ADMIN_BACKGROUND_UPDATES_START_JOB,
+  adminUserRateLimit,
+  ADMIN_STATISTICS_USERS_MEDIA,
   CLIENT_VERSIONS,
   CLIENT_REGISTER,
   CLIENT_WHOAMI,
@@ -378,12 +402,120 @@ describe("Synapse Admin room detail endpoints", () => {
   });
 });
 
+describe("Media admin endpoints", () => {
+  it("adminRoomMedia builds correct path", () => {
+    expect(adminRoomMedia("!room:example.com")).toBe("/_synapse/admin/v1/room/!room%3Aexample.com/media");
+  });
+
+  it("adminUserMedia builds correct path", () => {
+    expect(adminUserMedia("@user:example.com")).toBe("/_synapse/admin/v1/users/%40user%3Aexample.com/media");
+  });
+
+  it("adminQuarantineMedia builds correct path", () => {
+    expect(adminQuarantineMedia("example.com", "abc123")).toBe("/_synapse/admin/v1/media/quarantine/example.com/abc123");
+  });
+
+  it("adminQuarantineRoomMedia builds correct path", () => {
+    expect(adminQuarantineRoomMedia("!room:example.com")).toBe("/_synapse/admin/v1/room/!room%3Aexample.com/media/quarantine");
+  });
+
+  it("adminQuarantineUserMedia builds correct path", () => {
+    expect(adminQuarantineUserMedia("@user:example.com")).toBe("/_synapse/admin/v1/users/%40user%3Aexample.com/media/quarantine");
+  });
+
+  it("adminUnquarantineMedia builds correct path", () => {
+    expect(adminUnquarantineMedia("example.com", "abc123")).toBe("/_synapse/admin/v1/media/unquarantine/example.com/abc123");
+  });
+
+  it("adminDeleteMedia builds correct path", () => {
+    expect(adminDeleteMedia("example.com", "abc123")).toBe("/_synapse/admin/v1/media/example.com/abc123");
+  });
+
+  it("adminDeleteMediaByDate builds correct path", () => {
+    expect(adminDeleteMediaByDate("example.com")).toBe("/_synapse/admin/v1/media/example.com/delete");
+  });
+
+  it("adminProtectMedia builds correct path", () => {
+    expect(adminProtectMedia("abc123")).toBe("/_synapse/admin/v1/media/protect/abc123");
+  });
+
+  it("adminUnprotectMedia builds correct path", () => {
+    expect(adminUnprotectMedia("abc123")).toBe("/_synapse/admin/v1/media/unprotect/abc123");
+  });
+});
+
+describe("Federation admin endpoints", () => {
+  it("ADMIN_FEDERATION_DESTINATIONS is correct", () => {
+    expect(ADMIN_FEDERATION_DESTINATIONS).toBe("/_synapse/admin/v1/federation/destinations");
+  });
+
+  it("adminFederationDestination builds correct path", () => {
+    expect(adminFederationDestination("matrix.org")).toBe("/_synapse/admin/v1/federation/destinations/matrix.org");
+  });
+
+  it("adminFederationDestinationRooms builds correct path", () => {
+    expect(adminFederationDestinationRooms("matrix.org")).toBe("/_synapse/admin/v1/federation/destinations/matrix.org/rooms");
+  });
+
+  it("adminFederationResetConnection builds correct path", () => {
+    expect(adminFederationResetConnection("matrix.org")).toBe("/_synapse/admin/v1/federation/destinations/matrix.org/reset_connection");
+  });
+});
+
+describe("Event reports admin endpoints", () => {
+  it("ADMIN_EVENT_REPORTS is correct", () => {
+    expect(ADMIN_EVENT_REPORTS).toBe("/_synapse/admin/v1/event_reports");
+  });
+
+  it("adminEventReport builds correct path", () => {
+    expect(adminEventReport("42")).toBe("/_synapse/admin/v1/event_reports/42");
+  });
+
+  it("adminDeleteEventReport builds correct path", () => {
+    expect(adminDeleteEventReport("42")).toBe("/_synapse/admin/v1/event_reports/42");
+  });
+});
+
+describe("Purge history admin endpoints", () => {
+  it("adminPurgeHistory builds correct path", () => {
+    expect(adminPurgeHistory("!room:example.com")).toBe("/_synapse/admin/v1/purge_history/!room%3Aexample.com");
+  });
+
+  it("adminPurgeHistoryStatus builds correct path", () => {
+    expect(adminPurgeHistoryStatus("abc123")).toBe("/_synapse/admin/v1/purge_history_status/abc123");
+  });
+});
+
+describe("Background updates admin endpoints", () => {
+  it("constants are correct", () => {
+    expect(ADMIN_BACKGROUND_UPDATES_STATUS).toBe("/_synapse/admin/v1/background_updates/status");
+    expect(ADMIN_BACKGROUND_UPDATES_ENABLED).toBe("/_synapse/admin/v1/background_updates/enabled");
+    expect(ADMIN_BACKGROUND_UPDATES_START_JOB).toBe("/_synapse/admin/v1/background_updates/start_job");
+  });
+});
+
+describe("Rate limit admin endpoints", () => {
+  it("adminUserRateLimit builds correct path", () => {
+    expect(adminUserRateLimit("@user:example.com")).toBe("/_synapse/admin/v1/users/%40user%3Aexample.com/override_ratelimit");
+  });
+});
+
+describe("Statistics admin endpoints", () => {
+  it("ADMIN_STATISTICS_USERS_MEDIA is correct", () => {
+    expect(ADMIN_STATISTICS_USERS_MEDIA).toBe("/_synapse/admin/v1/statistics/users/media");
+  });
+});
+
 describe("URL separation enforcement", () => {
   it("admin endpoints start with /_synapse/admin/", () => {
     expect(ADMIN_REGISTRATION_TOKENS).toMatch(/^\/\_synapse\/admin\//);
     expect(ADMIN_REGISTRATION_TOKENS_NEW).toMatch(/^\/\_synapse\/admin\//);
     expect(ADMIN_USERS).toMatch(/^\/\_synapse\/admin\//);
     expect(ADMIN_ROOMS).toMatch(/^\/\_synapse\/admin\//);
+    expect(ADMIN_FEDERATION_DESTINATIONS).toMatch(/^\/\_synapse\/admin\//);
+    expect(ADMIN_EVENT_REPORTS).toMatch(/^\/\_synapse\/admin\//);
+    expect(ADMIN_BACKGROUND_UPDATES_STATUS).toMatch(/^\/\_synapse\/admin\//);
+    expect(ADMIN_STATISTICS_USERS_MEDIA).toMatch(/^\/\_synapse\/admin\//);
     expect(adminRegistrationToken("test")).toMatch(/^\/\_synapse\/admin\//);
     expect(adminUserEndpoint("@bot:example.com")).toMatch(/^\/\_synapse\/admin\//);
     expect(adminUserLogin("@bot:example.com")).toMatch(/^\/\_synapse\/admin\//);
@@ -393,6 +525,13 @@ describe("URL separation enforcement", () => {
     expect(adminLeaveRoom("!room:example.com")).toMatch(/^\/\_synapse\/admin\//);
     expect(adminRoomDetail("!room:example.com")).toMatch(/^\/\_synapse\/admin\//);
     expect(adminRoomState("!room:example.com")).toMatch(/^\/\_synapse\/admin\//);
+    expect(adminRoomMedia("!room:example.com")).toMatch(/^\/\_synapse\/admin\//);
+    expect(adminUserMedia("@u:e.c")).toMatch(/^\/\_synapse\/admin\//);
+    expect(adminQuarantineMedia("e.c", "x")).toMatch(/^\/\_synapse\/admin\//);
+    expect(adminFederationDestination("e.c")).toMatch(/^\/\_synapse\/admin\//);
+    expect(adminEventReport("1")).toMatch(/^\/\_synapse\/admin\//);
+    expect(adminPurgeHistory("!r:e.c")).toMatch(/^\/\_synapse\/admin\//);
+    expect(adminUserRateLimit("@u:e.c")).toMatch(/^\/\_synapse\/admin\//);
   });
 
   it("client endpoints start with /_matrix/client/", () => {

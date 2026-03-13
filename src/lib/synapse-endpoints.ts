@@ -188,6 +188,137 @@ export function clientTokenValidity(token: string): string {
   return `/_matrix/client/v1/register/m.login.registration_token/validity?token=${encodeURIComponent(token)}`;
 }
 
+// --- Synapse Admin API: Media management ---
+// Ref: https://element-hq.github.io/synapse/latest/admin_api/media_admin_api.html
+
+// List media in a room: GET /_synapse/admin/v1/room/{roomId}/media
+export function adminRoomMedia(roomId: string): string {
+  return `/_synapse/admin/v1/room/${encodeURIComponent(roomId)}/media`;
+}
+
+// List media uploaded by a user: GET /_synapse/admin/v1/users/{userId}/media
+export function adminUserMedia(userId: string): string {
+  return `/_synapse/admin/v1/users/${encodeURIComponent(userId)}/media`;
+}
+
+// Quarantine media by ID: POST /_synapse/admin/v1/media/quarantine/{serverName}/{mediaId}
+export function adminQuarantineMedia(serverName: string, mediaId: string): string {
+  return `/_synapse/admin/v1/media/quarantine/${encodeURIComponent(serverName)}/${encodeURIComponent(mediaId)}`;
+}
+
+// Quarantine all media in a room: POST /_synapse/admin/v1/room/{roomId}/media/quarantine
+export function adminQuarantineRoomMedia(roomId: string): string {
+  return `/_synapse/admin/v1/room/${encodeURIComponent(roomId)}/media/quarantine`;
+}
+
+// Quarantine all media by a user: POST /_synapse/admin/v1/users/{userId}/media/quarantine
+export function adminQuarantineUserMedia(userId: string): string {
+  return `/_synapse/admin/v1/users/${encodeURIComponent(userId)}/media/quarantine`;
+}
+
+// Unquarantine media: POST /_synapse/admin/v1/media/unquarantine/{serverName}/{mediaId}
+export function adminUnquarantineMedia(serverName: string, mediaId: string): string {
+  return `/_synapse/admin/v1/media/unquarantine/${encodeURIComponent(serverName)}/${encodeURIComponent(mediaId)}`;
+}
+
+// Delete media by ID: DELETE /_synapse/admin/v1/media/{serverName}/{mediaId}
+export function adminDeleteMedia(serverName: string, mediaId: string): string {
+  return `/_synapse/admin/v1/media/${encodeURIComponent(serverName)}/${encodeURIComponent(mediaId)}`;
+}
+
+// Delete media by date: POST /_synapse/admin/v1/media/{serverName}/delete?before_ts={ts}
+export function adminDeleteMediaByDate(serverName: string): string {
+  return `/_synapse/admin/v1/media/${encodeURIComponent(serverName)}/delete`;
+}
+
+// Protect media from purge: POST /_synapse/admin/v1/media/protect/{mediaId}
+export function adminProtectMedia(mediaId: string): string {
+  return `/_synapse/admin/v1/media/protect/${encodeURIComponent(mediaId)}`;
+}
+
+// Unprotect media: POST /_synapse/admin/v1/media/unprotect/{mediaId}
+export function adminUnprotectMedia(mediaId: string): string {
+  return `/_synapse/admin/v1/media/unprotect/${encodeURIComponent(mediaId)}`;
+}
+
+// --- Synapse Admin API: Federation ---
+// Ref: https://element-hq.github.io/synapse/latest/admin_api/federation.html
+
+// List federation destinations: GET /_synapse/admin/v1/federation/destinations
+export const ADMIN_FEDERATION_DESTINATIONS = "/_synapse/admin/v1/federation/destinations";
+
+// Get destination details: GET /_synapse/admin/v1/federation/destinations/{destination}
+export function adminFederationDestination(destination: string): string {
+  return `/_synapse/admin/v1/federation/destinations/${encodeURIComponent(destination)}`;
+}
+
+// Get destination rooms: GET /_synapse/admin/v1/federation/destinations/{destination}/rooms
+export function adminFederationDestinationRooms(destination: string): string {
+  return `/_synapse/admin/v1/federation/destinations/${encodeURIComponent(destination)}/rooms`;
+}
+
+// Reset connection: POST /_synapse/admin/v1/federation/destinations/{destination}/reset_connection
+export function adminFederationResetConnection(destination: string): string {
+  return `/_synapse/admin/v1/federation/destinations/${encodeURIComponent(destination)}/reset_connection`;
+}
+
+// --- Synapse Admin API: Event Reports ---
+// Ref: https://element-hq.github.io/synapse/latest/admin_api/event_reports.html
+
+// List event reports: GET /_synapse/admin/v1/event_reports
+export const ADMIN_EVENT_REPORTS = "/_synapse/admin/v1/event_reports";
+
+// Get specific event report: GET /_synapse/admin/v1/event_reports/{reportId}
+export function adminEventReport(reportId: string): string {
+  return `/_synapse/admin/v1/event_reports/${encodeURIComponent(reportId)}`;
+}
+
+// Delete event report: DELETE /_synapse/admin/v1/event_reports/{reportId}
+export function adminDeleteEventReport(reportId: string): string {
+  return `/_synapse/admin/v1/event_reports/${encodeURIComponent(reportId)}`;
+}
+
+// --- Synapse Admin API: Purge History ---
+// Ref: https://element-hq.github.io/synapse/latest/admin_api/purge_history_api.html
+
+// Purge room history: POST /_synapse/admin/v1/purge_history/{roomId}
+export function adminPurgeHistory(roomId: string): string {
+  return `/_synapse/admin/v1/purge_history/${encodeURIComponent(roomId)}`;
+}
+
+// Get purge status: GET /_synapse/admin/v1/purge_history_status/{purgeId}
+export function adminPurgeHistoryStatus(purgeId: string): string {
+  return `/_synapse/admin/v1/purge_history_status/${encodeURIComponent(purgeId)}`;
+}
+
+// --- Synapse Admin API: Background Updates ---
+// Ref: https://element-hq.github.io/synapse/latest/admin_api/background_updates.html
+
+// Get background updates status: GET /_synapse/admin/v1/background_updates/status
+export const ADMIN_BACKGROUND_UPDATES_STATUS = "/_synapse/admin/v1/background_updates/status";
+
+// Enable/disable background updates: POST /_synapse/admin/v1/background_updates/enabled
+export const ADMIN_BACKGROUND_UPDATES_ENABLED = "/_synapse/admin/v1/background_updates/enabled";
+
+// Run background update job: POST /_synapse/admin/v1/background_updates/start_job
+export const ADMIN_BACKGROUND_UPDATES_START_JOB = "/_synapse/admin/v1/background_updates/start_job";
+
+// --- Synapse Admin API: Rate Limit Overrides ---
+// Ref: https://element-hq.github.io/synapse/latest/admin_api/user_admin_api.html#override-ratelimiting-for-users
+
+// Get/Set/Delete rate limit override: /_synapse/admin/v1/users/{userId}/override_ratelimit
+export function adminUserRateLimit(userId: string): string {
+  return `/_synapse/admin/v1/users/${encodeURIComponent(userId)}/override_ratelimit`;
+}
+
+// --- Synapse Admin API: Server Statistics ---
+// Ref: https://element-hq.github.io/synapse/latest/admin_api/statistics.html
+
+// User media statistics: GET /_synapse/admin/v1/statistics/users/media
+export const ADMIN_STATISTICS_USERS_MEDIA = "/_synapse/admin/v1/statistics/users/media";
+
+// Largest rooms: GET /_synapse/admin/v1/statistics/largest_rooms  (same as ADMIN_ROOMS with order_by)
+
 // --- Helpers ---
 
 export function buildUrl(baseUrl: string, path: string): string {
