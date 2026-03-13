@@ -1,11 +1,13 @@
 #!/bin/sh
 set -e
 
+PRISMA="node ./node_modules/prisma/build/index.js"
+
 echo "Running database migrations..."
-npx prisma migrate deploy
+$PRISMA migrate deploy
 
 echo "Seeding database..."
-npx prisma db seed || true
+node ./prisma/seed.js || true
 
 echo "Starting application..."
 exec "$@"
