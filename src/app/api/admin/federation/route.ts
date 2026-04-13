@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requireAdmin, requirePermission } from "@/lib/auth-guard";
 import { getServerConnectionById } from "@/lib/servers";
 import {
   listFederationDestinations,
@@ -71,17 +71,17 @@ export async function GET(request: NextRequest) {
  * Reset a federation connection.
  */
 export async function POST(request: NextRequest) {
-  const auth = await requireAdmin();
-  if (auth instanceof NextResponse) return auth;
-
   const url = new URL(request.url);
   const serverId = url.searchParams.get("serverId");
   if (!serverId) {
     return NextResponse.json({ error: "serverId is required" }, { status: 400 });
   }
 
+  const auth = await requirePermission("federation.write", serverId);
+  if (auth instanceof NextResponse) return auth;
+
   const body = await request.json().catch(() => null);
-  if (!body || !body.destination) {
+  if (!body || !body.destination || typeof body.destination !== "string" || body.destination.length > 500) {
     return NextResponse.json({ error: "destination is required" }, { status: 400 });
   }
 

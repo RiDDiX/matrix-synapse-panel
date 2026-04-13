@@ -283,6 +283,54 @@ export const createSpaceSchema = z.object({
   invite: z.array(z.string().regex(/^@[^:]+:.+$/)).max(100).optional(),
 });
 
+export const serverResolveQuerySchema = z.object({
+  slug: z.string().max(100).regex(/^[a-z0-9-]+$/).optional(),
+  domain: z.string().max(500).regex(/^[a-z0-9.\-:]+$/i).optional(),
+  serverId: z.string().max(100).regex(/^[A-Za-z0-9_-]+$/).optional(),
+});
+
+export const mediaQuarantineRoomSchema = z.object({
+  room_id: z.string().min(1).max(500).regex(/^!/, "Must be a valid room ID starting with !"),
+});
+
+export const mediaQuarantineUserSchema = z.object({
+  user_id: z.string().min(1).max(500).regex(/^@[^:]+:.+$/, "Must be a full Matrix user ID (@user:server)"),
+});
+
+export const deleteRoomSchema = z.object({
+  block: z.boolean().optional(),
+  purge: z.boolean().optional(),
+  force_purge: z.boolean().optional(),
+  message: z.string().max(2000).optional(),
+  new_room_user_id: z.string().max(500).regex(/^@[^:]+:.+$/).optional(),
+  new_room_name: z.string().max(500).optional(),
+  room_name: z.string().max(500).optional(),
+});
+
+export const userIdParamSchema = z.string().min(1).max(500).regex(/^@[^:]+:.+$/, "Must be a full Matrix user ID");
+
+export const deviceIdSchema = z.string().min(1).max(255).regex(/^[A-Za-z0-9_\-+/=]+$/, "Invalid device id");
+
+export const shadowBanSchema = z.object({
+  enabled: z.boolean(),
+});
+
+export const sendServerNoticeSchema = z.object({
+  user_id: z.string().min(1).max(500).regex(/^@[^:]+:.+$/),
+  content: z.object({
+    msgtype: z.string().min(1).max(100).default("m.text"),
+    body: z.string().min(1).max(65536),
+    format: z.string().max(100).optional(),
+    formatted_body: z.string().max(65536).optional(),
+  }),
+  type: z.string().max(100).optional(),
+  state_key: z.string().max(500).optional(),
+});
+
+export const makeRoomAdminSchema = z.object({
+  user_id: z.string().min(1).max(500).regex(/^@[^:]+:.+$/),
+});
+
 export const spaceChildSchema = z.object({
   room_id: z.string().min(1).max(500).regex(/^!/, "Must be a valid Matrix room ID starting with !"),
   suggested: z.boolean().default(false),
@@ -316,3 +364,10 @@ export type DeleteMediaByDateInput = z.infer<typeof deleteMediaByDateSchema>;
 export type MediaActionInput = z.infer<typeof mediaActionSchema>;
 export type CreateSpaceInput = z.infer<typeof createSpaceSchema>;
 export type SpaceChildInput = z.infer<typeof spaceChildSchema>;
+export type ServerResolveQueryInput = z.infer<typeof serverResolveQuerySchema>;
+export type MediaQuarantineRoomInput = z.infer<typeof mediaQuarantineRoomSchema>;
+export type MediaQuarantineUserInput = z.infer<typeof mediaQuarantineUserSchema>;
+export type DeleteRoomInput = z.infer<typeof deleteRoomSchema>;
+export type ShadowBanInput = z.infer<typeof shadowBanSchema>;
+export type SendServerNoticeInput = z.infer<typeof sendServerNoticeSchema>;
+export type MakeRoomAdminInput = z.infer<typeof makeRoomAdminSchema>;

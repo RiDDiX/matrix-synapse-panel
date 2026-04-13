@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requirePermission } from "@/lib/auth-guard";
 import { getBotById, setBotFeature } from "@/lib/integrations/bots";
 import { botFeatureSchema } from "@/lib/validation";
 import { logAudit } from "@/lib/audit";
@@ -8,14 +8,14 @@ import { getClientIp } from "@/lib/utils";
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function POST(request: NextRequest, context: RouteContext) {
-  const auth = await requireAdmin();
-  if (auth instanceof NextResponse) return auth;
-
   const { id } = await context.params;
   const bot = await getBotById(id);
   if (!bot) {
     return NextResponse.json({ error: "Bot not found" }, { status: 404 });
   }
+
+  const auth = await requirePermission("bots.write", bot.serverId);
+  if (auth instanceof NextResponse) return auth;
 
   const body = await request.json().catch(() => null);
   const parsed = botFeatureSchema.safeParse(body);

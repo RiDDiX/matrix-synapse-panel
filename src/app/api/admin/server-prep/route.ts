@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requirePermission } from "@/lib/auth-guard";
 import { serverPrepSchema } from "@/lib/validation";
 import { generateServerPrep, validatePrepConfig, type ServerPrepConfig } from "@/lib/server-prep";
 import { logAudit } from "@/lib/audit";
@@ -12,7 +12,7 @@ import { getClientIp } from "@/lib/utils";
  * This is a PREPARATION tool — it generates files, not running servers.
  */
 export async function POST(request: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requirePermission("server_prep");
   if (auth instanceof NextResponse) return auth;
 
   const body = await request.json().catch(() => null);
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
  * Validate a server prep configuration without generating files.
  */
 export async function PUT(request: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requirePermission("server_prep");
   if (auth instanceof NextResponse) return auth;
 
   const body = await request.json().catch(() => null);

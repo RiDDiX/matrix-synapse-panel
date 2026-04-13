@@ -35,11 +35,31 @@ const navItems = [
   { href: "/admin/integrations/diagnostics", label: "Int. Diagnostics", icon: Stethoscope },
 ];
 
+function healthDot(state: "ok" | "down" | "unknown" | "disabled" | undefined): string {
+  switch (state) {
+    case "ok": return "bg-green-500";
+    case "down": return "bg-red-500";
+    case "disabled": return "bg-gray-400";
+    default: return "bg-yellow-500";
+  }
+}
+
+function healthLabel(state: "ok" | "down" | "unknown" | "disabled" | undefined): string {
+  switch (state) {
+    case "ok": return "online";
+    case "down": return "offline";
+    case "disabled": return "disabled";
+    default: return "checking";
+  }
+}
+
 function ServerSelector() {
-  const { servers, current, setCurrent } = useServerContext();
+  const { servers, current, setCurrent, health } = useServerContext();
   const [open, setOpen] = useState(false);
 
   if (servers.length === 0) return null;
+
+  const currentHealth = current ? health[current.id] : undefined;
 
   return (
     <div className="relative px-3 pb-2">
@@ -48,6 +68,7 @@ function ServerSelector() {
         className="flex w-full items-center justify-between gap-2 rounded-lg border bg-sidebar-accent/30 px-3 py-2 text-sm text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
       >
         <div className="flex items-center gap-2 min-w-0">
+          <span className={`h-2 w-2 rounded-full shrink-0 ${healthDot(currentHealth)}`} title={healthLabel(currentHealth)} />
           <Server className="h-3.5 w-3.5 shrink-0" />
           <span className="truncate">{current?.name ?? "Select server"}</span>
         </div>
@@ -55,19 +76,29 @@ function ServerSelector() {
       </button>
       {open && (
         <div className="absolute left-3 right-3 top-full z-50 mt-1 rounded-lg border bg-popover shadow-md">
-          {servers.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => { setCurrent(s); setOpen(false); }}
-              className={`flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors first:rounded-t-lg last:rounded-b-lg ${
-                current?.id === s.id ? "bg-accent font-medium" : ""
-              }`}
-            >
-              <span className={`h-2 w-2 rounded-full shrink-0 ${s.enabled ? "bg-green-500" : "bg-gray-400"}`} />
-              <span className="truncate">{s.name}</span>
-              {s.isDefault && <span className="ml-auto text-xs text-muted-foreground">default</span>}
-            </button>
-          ))}
+          {servers.map((s) => {
+            const state = health[s.id];
+            const blocked = !s.enabled || state === "down";
+            return (
+              <button
+                key={s.id}
+                onClick={() => {
+                  if (blocked) {
+                    if (!confirm(`Server "${s.name}" is ${healthLabel(state)}. Switch anyway?`)) return;
+                  }
+                  setCurrent(s);
+                  setOpen(false);
+                }}
+                className={`flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors first:rounded-t-lg last:rounded-b-lg ${
+                  current?.id === s.id ? "bg-accent font-medium" : ""
+                } ${blocked ? "opacity-60" : ""}`}
+              >
+                <span className={`h-2 w-2 rounded-full shrink-0 ${healthDot(s.enabled ? state : "disabled")}`} />
+                <span className="truncate">{s.name}</span>
+                {s.isDefault && <span className="ml-auto text-xs text-muted-foreground">default</span>}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

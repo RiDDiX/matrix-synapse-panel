@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   KeyRound, CheckCircle2, Clock, XCircle, Ban, UserPlus,
   Users, Bot, Puzzle, Activity,
 } from "lucide-react";
 import { useServerContext } from "@/lib/server-context";
+import { usePolling } from "@/hooks/use-polling";
 import type { DashboardStats } from "@/lib/types";
 
 export default function OverviewPage() {
@@ -14,20 +15,35 @@ export default function OverviewPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!current) {
-      setStats(null);
-      return;
-    }
-    setError(null);
-    fetch(`/api/admin/stats?serverId=${current.id}`)
-      .then((res) => {
+  const loadStats = useCallback(
+    async (signal?: AbortSignal) => {
+      if (!current) {
+        setStats(null);
+        return;
+      }
+      try {
+        const res = await fetch(`/api/admin/stats?serverId=${current.id}`, { signal });
         if (!res.ok) throw new Error("Failed to load stats");
-        return res.json();
-      })
-      .then(setStats)
-      .catch((e) => setError(e.message));
-  }, [current]);
+        const data = await res.json();
+        if (!signal?.aborted) {
+          setStats(data);
+          setError(null);
+        }
+      } catch (e) {
+        if ((e as Error).name === "AbortError") return;
+        setError((e as Error).message);
+      }
+    },
+    [current]
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadStats(controller.signal);
+    return () => controller.abort();
+  }, [loadStats]);
+
+  usePolling(() => loadStats(), { intervalMs: 60_000, enabled: !!current }, [current?.id]);
 
   if (serverLoading) {
     return (

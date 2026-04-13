@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requireAdmin, requirePermission } from "@/lib/auth-guard";
 import {
   getInstalledIntegration,
   updateIntegrationConfig,
@@ -34,14 +34,14 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 }
 
 export async function PUT(request: NextRequest, context: RouteContext) {
-  const auth = await requireAdmin();
-  if (auth instanceof NextResponse) return auth;
-
   const { id } = await context.params;
   const integration = await getInstalledIntegration(id);
   if (!integration) {
     return NextResponse.json({ error: "Integration not found" }, { status: 404 });
   }
+
+  const auth = await requirePermission("integrations.write", integration.serverId);
+  if (auth instanceof NextResponse) return auth;
 
   const body = await request.json().catch(() => null);
   const parsed = integrationConfigSchema.safeParse(body);
@@ -65,14 +65,14 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 }
 
 export async function DELETE(request: NextRequest, context: RouteContext) {
-  const auth = await requireAdmin();
-  if (auth instanceof NextResponse) return auth;
-
   const { id } = await context.params;
   const integration = await getInstalledIntegration(id);
   if (!integration) {
     return NextResponse.json({ error: "Integration not found" }, { status: 404 });
   }
+
+  const auth = await requirePermission("integrations.write", integration.serverId);
+  if (auth instanceof NextResponse) return auth;
 
   if (integration.enabled) {
     return NextResponse.json({ error: "Disable the integration before uninstalling" }, { status: 409 });
@@ -92,14 +92,14 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
-  const auth = await requireAdmin();
-  if (auth instanceof NextResponse) return auth;
-
   const { id } = await context.params;
   const integration = await getInstalledIntegration(id);
   if (!integration) {
     return NextResponse.json({ error: "Integration not found" }, { status: 404 });
   }
+
+  const auth = await requirePermission("integrations.write", integration.serverId);
+  if (auth instanceof NextResponse) return auth;
 
   const body = await request.json().catch(() => null);
   const action = body?.action as string | undefined;

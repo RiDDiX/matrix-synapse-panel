@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requirePermission } from "@/lib/auth-guard";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { getClientIp } from "@/lib/utils";
@@ -11,7 +11,7 @@ import { getClientIp } from "@/lib/utils";
  * Query params: type (tokens|audit_logs|users|servers), format (json|csv), serverId, limit
  */
 export async function GET(request: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requirePermission("export");
   if (auth instanceof NextResponse) return auth;
 
   const url = new URL(request.url);

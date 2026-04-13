@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requireAdmin, requirePermission } from "@/lib/auth-guard";
 import { getServerConnectionById } from "@/lib/servers";
 import {
   getUserRateLimit,
@@ -53,9 +53,6 @@ export async function GET(request: NextRequest) {
  * Set rate limit override for a user.
  */
 export async function POST(request: NextRequest) {
-  const auth = await requireAdmin();
-  if (auth instanceof NextResponse) return auth;
-
   const url = new URL(request.url);
   const serverId = url.searchParams.get("serverId");
   const userId = url.searchParams.get("userId");
@@ -66,6 +63,9 @@ export async function POST(request: NextRequest) {
   if (!userId) {
     return NextResponse.json({ error: "userId is required" }, { status: 400 });
   }
+
+  const auth = await requirePermission("users.write", serverId);
+  if (auth instanceof NextResponse) return auth;
 
   const body = await request.json().catch(() => null);
   const parsed = rateLimitOverrideSchema.safeParse(body);
@@ -112,9 +112,6 @@ export async function POST(request: NextRequest) {
  * Delete rate limit override for a user.
  */
 export async function DELETE(request: NextRequest) {
-  const auth = await requireAdmin();
-  if (auth instanceof NextResponse) return auth;
-
   const url = new URL(request.url);
   const serverId = url.searchParams.get("serverId");
   const userId = url.searchParams.get("userId");
@@ -125,6 +122,9 @@ export async function DELETE(request: NextRequest) {
   if (!userId) {
     return NextResponse.json({ error: "userId is required" }, { status: 400 });
   }
+
+  const auth = await requirePermission("users.write", serverId);
+  if (auth instanceof NextResponse) return auth;
 
   try {
     const conn = await getServerConnectionById(serverId);

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requireAdmin, requirePermission } from "@/lib/auth-guard";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { getClientIp } from "@/lib/utils";
@@ -64,15 +64,15 @@ export async function GET(request: NextRequest) {
  * POST /api/admin/webhooks — create or update a webhook endpoint
  */
 export async function POST(request: NextRequest) {
-  const auth = await requireAdmin();
-  if (auth instanceof NextResponse) return auth;
-
   const body = await request.json().catch(() => null);
   if (!body) {
     return NextResponse.json({ error: "Invalid body" }, { status: 400 });
   }
 
   const { id, name, url: webhookUrl, secret, events, enabled, serverId } = body;
+
+  const auth = await requirePermission("webhooks.write", serverId || undefined);
+  if (auth instanceof NextResponse) return auth;
 
   if (!name || typeof name !== "string" || name.length > 200) {
     return NextResponse.json({ error: "name is required (max 200 chars)" }, { status: 400 });
@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
  * DELETE /api/admin/webhooks — delete a webhook endpoint
  */
 export async function DELETE(request: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requirePermission("webhooks.write");
   if (auth instanceof NextResponse) return auth;
 
   const url = new URL(request.url);

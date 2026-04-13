@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requireAdmin, requireGlobalAdmin } from "@/lib/auth-guard";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { getClientIp } from "@/lib/utils";
@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
  * Body: { userId, permission, serverId? }
  */
 export async function POST(request: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireGlobalAdmin();
   if (auth instanceof NextResponse) return auth;
 
   const body = await request.json().catch(() => null);
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
     });
 
     await logAudit({
-      action: "user.ratelimit.set",
+      action: "admin.permission.granted",
       actor: auth.email,
       target: body.userId,
       detail: `granted permission: ${body.permission}${body.serverId ? ` (server: ${body.serverId})` : " (global)"}`,
@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
  * Query: id — permission record ID
  */
 export async function DELETE(request: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireGlobalAdmin();
   if (auth instanceof NextResponse) return auth;
 
   const url = new URL(request.url);
@@ -151,7 +151,7 @@ export async function DELETE(request: NextRequest) {
     await db.adminPermission.delete({ where: { id } });
 
     await logAudit({
-      action: "user.ratelimit.deleted",
+      action: "admin.permission.revoked",
       actor: auth.email,
       target: existing.userId,
       detail: `revoked permission: ${existing.permission}`,

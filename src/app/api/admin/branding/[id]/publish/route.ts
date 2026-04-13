@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requirePermission } from "@/lib/auth-guard";
 import { getProfileById, publishProfile, sanitizeProfile } from "@/lib/branding";
 import { logAudit } from "@/lib/audit";
 import { getClientIp } from "@/lib/utils";
@@ -7,7 +7,7 @@ import { getClientIp } from "@/lib/utils";
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function POST(request: NextRequest, context: RouteContext) {
-  const auth = await requireAdmin();
+  const auth = await requirePermission("branding.write");
   if (auth instanceof NextResponse) return auth;
 
   const { id } = await context.params;

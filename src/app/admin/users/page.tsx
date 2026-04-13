@@ -4,9 +4,10 @@ import { useState, useEffect, useCallback } from "react";
 import { useServerContext } from "@/lib/server-context";
 import { Button } from "@/components/ui/button";
 import {
-  Users, Search, Plus, Shield, ShieldOff, Ban, Trash2, RotateCcw,
-  Loader2, ChevronLeft, ChevronRight, CheckCircle2, XCircle, Lock,
-  Unlock, Eye, EyeOff, AlertTriangle, UserPlus,
+  Users, Search, Plus, Shield, Ban, Trash2, RotateCcw,
+  Loader2, ChevronLeft, ChevronRight, CheckCircle2, Lock,
+  Unlock, Eye, EyeOff, AlertTriangle, UserPlus, Smartphone, DoorOpen,
+  Bell, Ghost, X, Info,
 } from "lucide-react";
 
 interface SynapseUser {
@@ -52,6 +53,9 @@ export default function UserControlPage() {
   // Reactivate modal
   const [reactivateUser, setReactivateUser] = useState<string | null>(null);
   const [reactivatePassword, setReactivatePassword] = useState("");
+
+  // Details panel
+  const [detailsUser, setDetailsUser] = useState<SynapseUser | null>(null);
 
   const fetchUsers = useCallback(async (fromOffset = 0, searchTerm = "") => {
     if (!current) return;
@@ -423,6 +427,19 @@ export default function UserControlPage() {
                             {actionMsg.text}
                           </span>
                         )}
+                        {user.shadow_banned && !user.deactivated && (
+                          <span className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 mr-1" title="Shadow-banned">
+                            <Ghost className="w-3 h-3" /> shadow
+                          </span>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDetailsUser(user)}
+                          title="Details, devices, rooms, whois, notice"
+                        >
+                          <Info className="w-3.5 h-3.5" />
+                        </Button>
                         {actionLoading === user.name ? (
                           <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
                         ) : user.deactivated ? (
@@ -514,6 +531,314 @@ export default function UserControlPage() {
           >
             Next <ChevronRight className="w-4 h-4" />
           </Button>
+        </div>
+      </div>
+
+      {detailsUser && current && (
+        <UserDetailsPanel
+          serverId={current.id}
+          user={detailsUser}
+          onClose={() => setDetailsUser(null)}
+          onChanged={() => fetchUsers(from, search)}
+        />
+      )}
+    </div>
+  );
+}
+
+interface UserDevice {
+  device_id: string;
+  display_name: string | null;
+  last_seen_ip: string | null;
+  last_seen_user_agent: string | null;
+  last_seen_ts: number | null;
+}
+
+interface WhoisConnection {
+  ip: string;
+  last_seen: number;
+  user_agent: string;
+}
+
+function UserDetailsPanel({
+  serverId,
+  user,
+  onClose,
+  onChanged,
+}: {
+  serverId: string;
+  user: SynapseUser;
+  onClose: () => void;
+  onChanged: () => void;
+}) {
+  const [devices, setDevices] = useState<UserDevice[]>([]);
+  const [rooms, setRooms] = useState<string[]>([]);
+  const [whois, setWhois] = useState<Record<string, { sessions: Array<{ connections: WhoisConnection[] }> }> | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [shadowBanned, setShadowBanned] = useState(user.shadow_banned);
+  const [noticeBody, setNoticeBody] = useState("");
+  const [noticeSent, setNoticeSent] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setErr(null);
+    try {
+      const [devRes, roomsRes, whoisRes] = await Promise.all([
+        fetch(`/api/admin/users/${encodeURIComponent(user.name)}/devices?serverId=${serverId}`),
+        fetch(`/api/admin/users/${encodeURIComponent(user.name)}/joined-rooms?serverId=${serverId}`),
+        fetch(`/api/admin/users/${encodeURIComponent(user.name)}/whois?serverId=${serverId}`),
+      ]);
+      if (devRes.ok) setDevices((await devRes.json()).devices ?? []);
+      if (roomsRes.ok) setRooms((await roomsRes.json()).joined_rooms ?? []);
+      if (whoisRes.ok) setWhois((await whoisRes.json()).devices ?? {});
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to load details");
+    } finally {
+      setLoading(false);
+    }
+  }, [serverId, user.name]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function deleteDevice(deviceId: string) {
+    if (!confirm(`Delete device ${deviceId}? The user will be logged out from it.`)) return;
+    setBusy(deviceId);
+    try {
+      const res = await fetch(
+        `/api/admin/users/${encodeURIComponent(user.name)}/devices?serverId=${serverId}&deviceId=${encodeURIComponent(deviceId)}`,
+        { method: "DELETE" }
+      );
+      if (!res.ok) throw new Error((await res.json()).error ?? "Delete failed");
+      setDevices(devices.filter((d) => d.device_id !== deviceId));
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Delete failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function logoutAll() {
+    if (devices.length === 0) return;
+    if (!confirm(`Log out ${devices.length} device(s) for ${user.name}?`)) return;
+    setBusy("all");
+    try {
+      const res = await fetch(
+        `/api/admin/users/${encodeURIComponent(user.name)}/devices?serverId=${serverId}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ devices: devices.map((d) => d.device_id) }),
+        }
+      );
+      if (!res.ok) throw new Error((await res.json()).error ?? "Logout failed");
+      setDevices([]);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Logout failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function toggleShadowBan() {
+    const next = !shadowBanned;
+    setBusy("shadow");
+    try {
+      const res = await fetch(
+        `/api/admin/users/${encodeURIComponent(user.name)}/shadow-ban?serverId=${serverId}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: next }),
+        }
+      );
+      if (!res.ok) throw new Error((await res.json()).error ?? "Failed");
+      setShadowBanned(next);
+      onChanged();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function sendNotice() {
+    if (!noticeBody.trim()) return;
+    setBusy("notice");
+    setNoticeSent(null);
+    try {
+      const res = await fetch(`/api/admin/server-notices?serverId=${serverId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: user.name,
+          content: { msgtype: "m.text", body: noticeBody.trim() },
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Send failed");
+      setNoticeBody("");
+      setNoticeSent(data.event_id);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Send failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-card border rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-card border-b px-5 py-3 flex items-center justify-between">
+          <div>
+            <h3 className="font-medium">{user.displayname || user.name}</h3>
+            <p className="text-xs text-muted-foreground font-mono">{user.name}</p>
+          </div>
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
+
+        <div className="p-5 space-y-6">
+          {err && <p className="text-sm text-red-600">{err}</p>}
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <>
+              <section>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-medium flex items-center gap-2">
+                    <Smartphone className="w-4 h-4" /> Devices ({devices.length})
+                  </h4>
+                  {devices.length > 0 && (
+                    <Button variant="outline" size="sm" onClick={logoutAll} disabled={busy === "all"}>
+                      {busy === "all" ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <Ban className="w-3.5 h-3.5 mr-1" />}
+                      Log out all
+                    </Button>
+                  )}
+                </div>
+                {devices.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No active devices.</p>
+                ) : (
+                  <div className="border rounded-md divide-y">
+                    {devices.map((d) => (
+                      <div key={d.device_id} className="p-3 flex items-start justify-between gap-4 text-sm">
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium">{d.display_name || "Unnamed device"}</div>
+                          <div className="text-xs text-muted-foreground font-mono truncate">{d.device_id}</div>
+                          {(d.last_seen_ip || d.last_seen_ts) && (
+                            <div className="text-xs text-muted-foreground mt-1">
+                              {d.last_seen_ip && <span>{d.last_seen_ip}</span>}
+                              {d.last_seen_ts && <span> · {new Date(d.last_seen_ts).toLocaleString()}</span>}
+                            </div>
+                          )}
+                          {d.last_seen_user_agent && (
+                            <div className="text-xs text-muted-foreground truncate" title={d.last_seen_user_agent}>
+                              {d.last_seen_user_agent}
+                            </div>
+                          )}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive"
+                          disabled={busy === d.device_id}
+                          onClick={() => deleteDevice(d.device_id)}
+                        >
+                          {busy === d.device_id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <section>
+                <h4 className="text-sm font-medium flex items-center gap-2 mb-2">
+                  <DoorOpen className="w-4 h-4" /> Joined rooms ({rooms.length})
+                </h4>
+                {rooms.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Not a member of any rooms.</p>
+                ) : (
+                  <div className="border rounded-md max-h-48 overflow-y-auto p-2 space-y-1">
+                    {rooms.map((r) => (
+                      <div key={r} className="text-xs font-mono text-muted-foreground break-all">{r}</div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <section>
+                <h4 className="text-sm font-medium flex items-center gap-2 mb-2">
+                  <Eye className="w-4 h-4" /> IP history (whois)
+                </h4>
+                {whois && Object.keys(whois).length > 0 ? (
+                  <div className="border rounded-md divide-y text-xs">
+                    {Object.entries(whois).flatMap(([devId, d]) =>
+                      d.sessions.flatMap((s) =>
+                        s.connections.map((c, i) => (
+                          <div key={`${devId}-${i}-${c.last_seen}`} className="p-2 flex justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="font-mono">{c.ip}</div>
+                              <div className="text-muted-foreground truncate" title={c.user_agent}>{c.user_agent}</div>
+                            </div>
+                            <div className="text-muted-foreground whitespace-nowrap">{new Date(c.last_seen).toLocaleString()}</div>
+                          </div>
+                        ))
+                      )
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">No recorded connections.</p>
+                )}
+              </section>
+
+              <section className="space-y-2">
+                <h4 className="text-sm font-medium flex items-center gap-2">
+                  <Ghost className="w-4 h-4" /> Shadow ban
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  Shadow-banned users can still use the server, but their messages are silently dropped for other users.
+                </p>
+                <Button
+                  variant={shadowBanned ? "outline" : "default"}
+                  size="sm"
+                  onClick={toggleShadowBan}
+                  disabled={busy === "shadow"}
+                >
+                  {busy === "shadow" ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <Ghost className="w-3.5 h-3.5 mr-1" />}
+                  {shadowBanned ? "Remove shadow ban" : "Shadow ban"}
+                </Button>
+              </section>
+
+              <section className="space-y-2">
+                <h4 className="text-sm font-medium flex items-center gap-2">
+                  <Bell className="w-4 h-4" /> Send server notice
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  Opens (or reuses) the Server Notices room with this user and posts a message. Requires server notices to be configured on the homeserver.
+                </p>
+                <textarea
+                  value={noticeBody}
+                  onChange={(e) => setNoticeBody(e.target.value)}
+                  rows={3}
+                  maxLength={4000}
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  placeholder="Notice body (plain text)…"
+                />
+                <div className="flex items-center gap-2">
+                  <Button size="sm" onClick={sendNotice} disabled={busy === "notice" || !noticeBody.trim()}>
+                    {busy === "notice" ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <Bell className="w-3.5 h-3.5 mr-1" />}
+                    Send notice
+                  </Button>
+                  {noticeSent && <span className="text-xs text-green-600">Sent — {noticeSent}</span>}
+                </div>
+              </section>
+            </>
+          )}
         </div>
       </div>
     </div>

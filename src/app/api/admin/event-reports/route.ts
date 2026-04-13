@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requireAdmin, requirePermission } from "@/lib/auth-guard";
 import { getServerConnectionById } from "@/lib/servers";
 import {
   listEventReports,
@@ -70,9 +70,6 @@ export async function GET(request: NextRequest) {
  * Delete an event report by ID.
  */
 export async function DELETE(request: NextRequest) {
-  const auth = await requireAdmin();
-  if (auth instanceof NextResponse) return auth;
-
   const url = new URL(request.url);
   const serverId = url.searchParams.get("serverId");
   const reportId = url.searchParams.get("reportId");
@@ -83,6 +80,9 @@ export async function DELETE(request: NextRequest) {
   if (!reportId) {
     return NextResponse.json({ error: "reportId is required" }, { status: 400 });
   }
+
+  const auth = await requirePermission("event_reports.write", serverId);
+  if (auth instanceof NextResponse) return auth;
 
   try {
     const conn = await getServerConnectionById(serverId);

@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useServerContext } from "@/lib/server-context";
+import { usePolling } from "@/hooks/use-polling";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Database, RefreshCw, Play, Pause } from "lucide-react";
@@ -38,6 +39,13 @@ export default function BackgroundUpdatesPage() {
       setLoading(false);
     }
   }, [current]);
+
+  const hasRunningJobs = Object.keys(updates).length > 0;
+  usePolling(
+    () => fetchStatus(),
+    { intervalMs: hasRunningJobs ? 5_000 : 60_000, enabled: !!current },
+    [current?.id, hasRunningJobs]
+  );
 
   async function toggleEnabled() {
     if (!current || enabled === null) return;

@@ -31,6 +31,8 @@ import {
   ArrowUpCircle,
   Loader2,
   AlertTriangle,
+  Trash2,
+  Crown,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -205,6 +207,26 @@ function RoomList({
 
   useEffect(() => { fetchRooms(); }, [fetchRooms]);
 
+  async function handleDeleteRoom(roomId: string, roomName: string | null) {
+    const label = roomName ? `"${roomName}"` : roomId;
+    if (!confirm(`Delete room ${label}? This kicks all local users and cannot be undone.`)) return;
+    const block = confirm("Also BLOCK this room? Blocked rooms cannot be re-joined or re-created.");
+    const purge = confirm("Purge room history from the database? (Recommended)");
+    try {
+      const res = await fetch(`/api/admin/rooms/${encodeURIComponent(roomId)}/delete?serverId=${serverId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ block, purge }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Delete failed");
+      alert(`Room deleted. Kicked ${data.kicked_users?.length ?? 0} users.`);
+      fetchRooms();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Delete failed");
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-3">
@@ -273,6 +295,9 @@ function RoomList({
                         </Button>
                         <Button variant="ghost" size="sm" onClick={() => onOpenRoom(room.room_id, "settings")} title="Settings">
                           <Settings className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleDeleteRoom(room.room_id, room.name)} title="Delete room" className="text-destructive hover:text-destructive">
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </td>
@@ -539,6 +564,25 @@ function RoomMembersView({ serverId, roomId }: { serverId: string; roomId: strin
     }
   }
 
+  async function makeAdmin(userId: string) {
+    if (!confirm(`Grant ${userId} admin rights (power level 100) in this room?`)) return;
+    setActionLoading(userId);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/admin/rooms/${encodeURIComponent(roomId)}/make-admin?serverId=${serverId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? "Failed to grant admin");
+      await fetchMembers();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Failed to grant admin");
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
   async function handleInvite() {
     if (!inviteUserId.trim()) return;
     await doAction("invite", inviteUserId.trim());
@@ -580,6 +624,15 @@ function RoomMembersView({ serverId, roomId }: { serverId: string; roomId: strin
                 <td className="p-3">{m.displayName ?? "—"}</td>
                 <td className="p-3 text-right">
                   <div className="flex justify-end gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      title="Make room admin (power level 100)"
+                      disabled={actionLoading === m.userId}
+                      onClick={() => makeAdmin(m.userId)}
+                    >
+                      <Crown className="h-4 w-4 text-amber-600" />
+                    </Button>
                     <Button
                       variant="ghost"
                       size="sm"

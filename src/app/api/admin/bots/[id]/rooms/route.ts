@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requirePermission } from "@/lib/auth-guard";
 import { getBotById, assignBotToRoom, unassignBotFromRoom } from "@/lib/integrations/bots";
 import { botRoomAssignmentSchema } from "@/lib/validation";
 import { logAudit } from "@/lib/audit";
@@ -10,14 +10,14 @@ import { joinRoomAsUser, leaveRoomAsUser } from "@/lib/synapse";
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function POST(request: NextRequest, context: RouteContext) {
-  const auth = await requireAdmin();
-  if (auth instanceof NextResponse) return auth;
-
   const { id } = await context.params;
   const bot = await getBotById(id);
   if (!bot) {
     return NextResponse.json({ error: "Bot not found" }, { status: 404 });
   }
+
+  const auth = await requirePermission("bots.write", bot.serverId);
+  if (auth instanceof NextResponse) return auth;
 
   const body = await request.json().catch(() => null);
   const parsed = botRoomAssignmentSchema.safeParse(body);
@@ -62,14 +62,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
 }
 
 export async function DELETE(request: NextRequest, context: RouteContext) {
-  const auth = await requireAdmin();
-  if (auth instanceof NextResponse) return auth;
-
   const { id } = await context.params;
   const bot = await getBotById(id);
   if (!bot) {
     return NextResponse.json({ error: "Bot not found" }, { status: 404 });
   }
+
+  const auth = await requirePermission("bots.write", bot.serverId);
+  if (auth instanceof NextResponse) return auth;
 
   const body = await request.json().catch(() => null);
   const roomId = body?.roomId as string | undefined;

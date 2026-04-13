@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useServerContext } from "@/lib/server-context";
+import { usePolling } from "@/hooks/use-polling";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Flag, RefreshCw, Trash2, Eye } from "lucide-react";
@@ -47,6 +48,8 @@ export default function EventReportsPage() {
       setLoading(false);
     }
   }, [current, filterRoom]);
+
+  usePolling(() => fetchReports(), { intervalMs: 60_000, enabled: !!current }, [current?.id, filterRoom]);
 
   async function deleteReport(reportId: number) {
     if (!current || !confirm("Delete this event report?")) return;

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requireAdmin, requireGlobalAdmin } from "@/lib/auth-guard";
 import { getServerConnectionById, rotateServerToken } from "@/lib/servers";
 import { getUser, SynapseApiError } from "@/lib/synapse";
 import { getLoginFlows, loginWithPassword, matrixWhoami, MatrixApiError } from "@/lib/matrix-client";
@@ -22,7 +22,7 @@ import { getClientIp } from "@/lib/utils";
  * There is NO special admin-token-minting endpoint in Synapse.
  */
 export async function POST(request: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireGlobalAdmin();
   if (auth instanceof NextResponse) return auth;
 
   const url = new URL(request.url);

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RefreshCw, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 import { useServerContext } from "@/lib/server-context";
+import { usePolling } from "@/hooks/use-polling";
 import type { DiagnosticsResult } from "@/lib/types";
 
 export default function DiagnosticsPage() {
@@ -28,6 +29,8 @@ export default function DiagnosticsPage() {
   }
 
   useEffect(() => { runCheck(); }, [current]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  usePolling(() => runCheck(), { intervalMs: 30_000, enabled: !!current }, [current?.id]);
 
   if (serverLoading) return <div className="flex items-center justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>;
   if (!current) return <div className="flex flex-col items-center justify-center py-20 text-muted-foreground"><p>Select a homeserver to run diagnostics.</p></div>;

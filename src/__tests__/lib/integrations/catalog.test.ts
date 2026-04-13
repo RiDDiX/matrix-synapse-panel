@@ -44,7 +44,7 @@ describe("Integration Catalog", () => {
   it("searches by name", () => {
     const results = searchCatalog("whatsapp");
     expect(results.length).toBeGreaterThanOrEqual(1);
-    expect(results[0].id).toBe("mautrix-whatsapp");
+    expect(results[0]?.id).toBe("mautrix-whatsapp");
   });
 
   it("searches by tag", () => {
@@ -87,9 +87,9 @@ describe("Integration Catalog", () => {
 
     it("has synapse changes", () => {
       expect(entry.requiredSynapseChanges.length).toBe(1);
-      expect(entry.requiredSynapseChanges[0].type).toBe("appservice_registration");
-      expect(entry.requiredSynapseChanges[0].generatable).toBe(true);
-      expect(entry.requiredSynapseChanges[0].automatable).toBe(false);
+      expect(entry.requiredSynapseChanges[0]?.type).toBe("appservice_registration");
+      expect(entry.requiredSynapseChanges[0]?.generatable).toBe(true);
+      expect(entry.requiredSynapseChanges[0]?.automatable).toBe(false);
     });
 
     it("has risk notes", () => {

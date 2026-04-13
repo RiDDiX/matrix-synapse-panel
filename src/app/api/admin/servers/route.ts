@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requireAdmin, requireGlobalAdmin } from "@/lib/auth-guard";
 import { listServers, createServer } from "@/lib/servers";
 import { createServerSchema } from "@/lib/validation";
 import { logAudit } from "@/lib/audit";
@@ -14,7 +14,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireGlobalAdmin();
   if (auth instanceof NextResponse) return auth;
 
   const body = await request.json().catch(() => null);

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requireAdmin, requirePermission } from "@/lib/auth-guard";
 import { getBotById, updateBot, deleteBot, activateBot, deactivateBot, sanitizeBot, setBotAccessToken } from "@/lib/integrations/bots";
 import { updateBotSchema } from "@/lib/validation";
 import { logAudit } from "@/lib/audit";
@@ -22,14 +22,14 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 }
 
 export async function PUT(request: NextRequest, context: RouteContext) {
-  const auth = await requireAdmin();
-  if (auth instanceof NextResponse) return auth;
-
   const { id } = await context.params;
   const existing = await getBotById(id);
   if (!existing) {
     return NextResponse.json({ error: "Bot not found" }, { status: 404 });
   }
+
+  const auth = await requirePermission("bots.write", existing.serverId);
+  if (auth instanceof NextResponse) return auth;
 
   const body = await request.json().catch(() => null);
   const parsed = updateBotSchema.safeParse(body);
@@ -56,14 +56,14 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 }
 
 export async function DELETE(request: NextRequest, context: RouteContext) {
-  const auth = await requireAdmin();
-  if (auth instanceof NextResponse) return auth;
-
   const { id } = await context.params;
   const existing = await getBotById(id);
   if (!existing) {
     return NextResponse.json({ error: "Bot not found" }, { status: 404 });
   }
+
+  const auth = await requirePermission("bots.write", existing.serverId);
+  if (auth instanceof NextResponse) return auth;
 
   if (existing.enabled) {
     return NextResponse.json({ error: "Deactivate the bot before deleting" }, { status: 409 });
@@ -83,14 +83,14 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
-  const auth = await requireAdmin();
-  if (auth instanceof NextResponse) return auth;
-
   const { id } = await context.params;
   const existing = await getBotById(id);
   if (!existing) {
     return NextResponse.json({ error: "Bot not found" }, { status: 404 });
   }
+
+  const auth = await requirePermission("bots.write", existing.serverId);
+  if (auth instanceof NextResponse) return auth;
 
   const body = await request.json().catch(() => null);
   const action = body?.action as string | undefined;

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
 import { useServerContext } from "@/lib/server-context";
+import { usePolling } from "@/hooks/use-polling";
 
 interface AuditEntry {
   id: string;
@@ -56,6 +57,8 @@ export default function AuditPage() {
 
   useEffect(() => { setOffset(0); fetchLogs(0); }, [current, fetchLogs]);
   useEffect(() => { fetchLogs(offset); }, [offset, fetchLogs]);
+
+  usePolling(() => fetchLogs(offset), { intervalMs: 30_000, enabled: offset === 0 }, [offset, fetchLogs]);
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1;

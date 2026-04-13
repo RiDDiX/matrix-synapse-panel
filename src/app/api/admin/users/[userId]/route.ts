@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requireAdmin, requirePermission } from "@/lib/auth-guard";
 import { getServerConnectionById } from "@/lib/servers";
 import { getUser, modifyUser, deactivateUser, reactivateUser, SynapseApiError } from "@/lib/synapse";
 import { modifyUserSchema } from "@/lib/validation";
@@ -37,17 +37,17 @@ export async function GET(request: NextRequest, context: RouteContext) {
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
-  const auth = await requireAdmin();
-  if (auth instanceof NextResponse) return auth;
-
-  const { userId: rawUserId } = await context.params;
-  const userId = decodeURIComponent(rawUserId);
-
   const url = new URL(request.url);
   const serverId = url.searchParams.get("serverId");
   if (!serverId) {
     return NextResponse.json({ error: "serverId is required" }, { status: 400 });
   }
+
+  const auth = await requirePermission("users.write", serverId);
+  if (auth instanceof NextResponse) return auth;
+
+  const { userId: rawUserId } = await context.params;
+  const userId = decodeURIComponent(rawUserId);
 
   const body = await request.json().catch(() => null);
   if (!body) {

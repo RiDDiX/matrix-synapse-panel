@@ -67,6 +67,50 @@ export function adminDeleteRoom(roomId: string): string {
   return `/_synapse/admin/v1/rooms/${encodeURIComponent(roomId)}`;
 }
 
+// Make a user the new admin of a room:
+// https://element-hq.github.io/synapse/latest/admin_api/rooms.html#make-room-admin-api
+export function adminMakeRoomAdmin(roomId: string): string {
+  return `/_synapse/admin/v1/rooms/${encodeURIComponent(roomId)}/make_room_admin`;
+}
+
+// User devices:
+// https://element-hq.github.io/synapse/latest/admin_api/user_admin_api.html#list-all-devices
+export function adminUserDevices(userId: string): string {
+  return `/_synapse/admin/v2/users/${encodeURIComponent(userId)}/devices`;
+}
+
+export function adminUserDevice(userId: string, deviceId: string): string {
+  return `/_synapse/admin/v2/users/${encodeURIComponent(userId)}/devices/${encodeURIComponent(deviceId)}`;
+}
+
+// Delete multiple devices at once:
+// https://element-hq.github.io/synapse/latest/admin_api/user_admin_api.html#delete-multiple-devices
+export function adminUserDeleteDevices(userId: string): string {
+  return `/_synapse/admin/v2/users/${encodeURIComponent(userId)}/delete_devices`;
+}
+
+// Shadow-ban a user:
+// https://element-hq.github.io/synapse/latest/admin_api/user_admin_api.html#controlling-whether-a-user-is-shadow-banned
+export function adminUserShadowBan(userId: string): string {
+  return `/_synapse/admin/v1/users/${encodeURIComponent(userId)}/shadow_ban`;
+}
+
+// Whois / IP history:
+// https://element-hq.github.io/synapse/latest/admin_api/user_admin_api.html#query-current-sessions-for-a-user
+export function adminUserWhois(userId: string): string {
+  return `/_synapse/admin/v1/whois/${encodeURIComponent(userId)}`;
+}
+
+// List rooms a user has joined:
+// https://element-hq.github.io/synapse/latest/admin_api/user_admin_api.html#list-room-memberships-of-a-user
+export function adminUserJoinedRooms(userId: string): string {
+  return `/_synapse/admin/v1/users/${encodeURIComponent(userId)}/joined_rooms`;
+}
+
+// Send a server notice:
+// https://element-hq.github.io/synapse/latest/admin_api/server_notices.html
+export const ADMIN_SEND_SERVER_NOTICE = "/_synapse/admin/v1/send_server_notice";
+
 // Room state: https://element-hq.github.io/synapse/latest/admin_api/rooms.html#room-state-api
 export function adminRoomState(roomId: string): string {
   return `/_synapse/admin/v1/rooms/${encodeURIComponent(roomId)}/state`;

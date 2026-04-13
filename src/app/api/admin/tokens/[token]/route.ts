@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requireAdmin, requirePermission } from "@/lib/auth-guard";
 import { getToken, updateToken, deleteToken, SynapseApiError } from "@/lib/synapse";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
@@ -32,9 +32,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
 }
 
 export async function PUT(request: NextRequest, context: RouteContext) {
-  const auth = await requireAdmin();
-  if (auth instanceof NextResponse) return auth;
-
   const { token: tokenId } = await context.params;
   const body = await request.json().catch(() => null);
   const parsed = updateTokenSchema.safeParse(body);
@@ -48,6 +45,9 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
   const serverId = body?.serverId as string | undefined;
   if (!serverId) return NextResponse.json({ error: "serverId is required" }, { status: 400 });
+
+  const auth = await requirePermission("tokens.write", serverId);
+  if (auth instanceof NextResponse) return auth;
 
   const { label, note, ...synapseParams } = parsed.data;
   const ip = getClientIp(request);
@@ -99,13 +99,13 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 }
 
 export async function DELETE(request: NextRequest, context: RouteContext) {
-  const auth = await requireAdmin();
-  if (auth instanceof NextResponse) return auth;
-
   const { token: tokenId } = await context.params;
   const body = await request.json().catch(() => null);
   const serverId = body?.serverId as string | undefined;
   if (!serverId) return NextResponse.json({ error: "serverId is required" }, { status: 400 });
+
+  const auth = await requirePermission("tokens.write", serverId);
+  if (auth instanceof NextResponse) return auth;
   const ip = getClientIp(request);
 
   try {

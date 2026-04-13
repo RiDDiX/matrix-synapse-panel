@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
   }
 
   const session = await getSession();
+  session.destroy();
   session.userId = user.id;
   session.email = user.email;
   session.isLoggedIn = true;

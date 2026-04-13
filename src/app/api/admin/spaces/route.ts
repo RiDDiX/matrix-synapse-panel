@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requirePermission } from "@/lib/auth-guard";
 import { getServerConnectionById } from "@/lib/servers";
 import {
   createRoom,
@@ -28,14 +28,14 @@ function getMatrixConn(conn: { internalUrl: string; adminToken: string }): Matri
  * Ref: https://spec.matrix.org/latest/client-server-api/#mspacechild
  */
 export async function POST(request: NextRequest) {
-  const auth = await requireAdmin();
-  if (auth instanceof NextResponse) return auth;
-
   const url = new URL(request.url);
   const serverId = url.searchParams.get("serverId");
   if (!serverId) {
     return NextResponse.json({ error: "serverId is required" }, { status: 400 });
   }
+
+  const auth = await requirePermission("spaces.write", serverId);
+  if (auth instanceof NextResponse) return auth;
 
   const body = await request.json().catch(() => null);
   if (!body || !body.action) {

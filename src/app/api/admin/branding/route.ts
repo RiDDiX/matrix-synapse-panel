@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requireAdmin, requirePermission } from "@/lib/auth-guard";
 import { listProfiles, createProfile, sanitizeProfile } from "@/lib/branding";
 import { brandingCreateSchema } from "@/lib/validation";
 import { logAudit } from "@/lib/audit";
@@ -14,7 +14,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requirePermission("branding.write");
   if (auth instanceof NextResponse) return auth;
 
   const body = await request.json().catch(() => null);

@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useServerContext } from "@/lib/server-context";
+import { usePolling } from "@/hooks/use-polling";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Globe, RefreshCw, RotateCcw, Search } from "lucide-react";
@@ -41,6 +42,8 @@ export default function FederationPage() {
       setLoading(false);
     }
   }, [current, search]);
+
+  usePolling(() => fetchDestinations(), { intervalMs: 30_000, enabled: !!current }, [current?.id, search]);
 
   async function resetConnection(destination: string) {
     if (!current) return;

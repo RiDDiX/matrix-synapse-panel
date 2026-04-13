@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requirePermission } from "@/lib/auth-guard";
 import { validateAssetUpload, storeAsset, getProfileById, sanitizeAsset } from "@/lib/branding";
 import { logAudit } from "@/lib/audit";
 import { getClientIp } from "@/lib/utils";
 import { ASSET_PURPOSES, type AssetPurpose } from "@/lib/branding-defaults";
 
 export async function POST(request: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requirePermission("branding.write");
   if (auth instanceof NextResponse) return auth;
 
   const formData = await request.formData().catch(() => null);

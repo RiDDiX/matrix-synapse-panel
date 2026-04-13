@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth-guard";
+import { z } from "zod";
+import { requireAdmin, requirePermission } from "@/lib/auth-guard";
 import { getServerConnectionById } from "@/lib/servers";
 import {
   listUserMedia,
   getUsersMediaStatistics,
   SynapseApiError,
 } from "@/lib/synapse";
-import { deleteMediaByDateSchema } from "@/lib/validation";
+import {
+  deleteMediaByDateSchema,
+  mediaActionSchema,
+  mediaQuarantineRoomSchema,
+  mediaQuarantineUserSchema,
+} from "@/lib/validation";
 import { logAudit } from "@/lib/audit";
 import { getClientIp } from "@/lib/utils";
 
@@ -82,14 +88,14 @@ export async function GET(request: NextRequest) {
  * Actions: quarantine, unquarantine, delete, delete_by_date, protect, unprotect
  */
 export async function POST(request: NextRequest) {
-  const auth = await requireAdmin();
-  if (auth instanceof NextResponse) return auth;
-
   const url = new URL(request.url);
   const serverId = url.searchParams.get("serverId");
   if (!serverId) {
     return NextResponse.json({ error: "serverId is required" }, { status: 400 });
   }
+
+  const auth = await requirePermission("media.write", serverId);
+  if (auth instanceof NextResponse) return auth;
 
   const body = await request.json().catch(() => null);
   if (!body || !body.action) {
@@ -102,27 +108,30 @@ export async function POST(request: NextRequest) {
 
     switch (body.action) {
       case "quarantine": {
-        if (!body.server_name || !body.media_id) {
-          return NextResponse.json({ error: "server_name and media_id required" }, { status: 400 });
+        const parsed = mediaActionSchema.safeParse(body);
+        if (!parsed.success) {
+          return NextResponse.json({ error: "Invalid input", details: parsed.error.flatten().fieldErrors }, { status: 400 });
         }
-        await quarantineMedia(body.server_name, body.media_id, conn);
-        await logAudit({ action: "media.quarantined", actor: auth.email, target: `${body.server_name}/${body.media_id}`, ip: getClientIp(request), serverId });
+        await quarantineMedia(parsed.data.server_name, parsed.data.media_id, conn);
+        await logAudit({ action: "media.quarantined", actor: auth.email, target: `${parsed.data.server_name}/${parsed.data.media_id}`, ip: getClientIp(request), serverId });
         return NextResponse.json({ success: true });
       }
       case "unquarantine": {
-        if (!body.server_name || !body.media_id) {
-          return NextResponse.json({ error: "server_name and media_id required" }, { status: 400 });
+        const parsed = mediaActionSchema.safeParse(body);
+        if (!parsed.success) {
+          return NextResponse.json({ error: "Invalid input", details: parsed.error.flatten().fieldErrors }, { status: 400 });
         }
-        await unquarantineMedia(body.server_name, body.media_id, conn);
-        await logAudit({ action: "media.unquarantined", actor: auth.email, target: `${body.server_name}/${body.media_id}`, ip: getClientIp(request), serverId });
+        await unquarantineMedia(parsed.data.server_name, parsed.data.media_id, conn);
+        await logAudit({ action: "media.unquarantined", actor: auth.email, target: `${parsed.data.server_name}/${parsed.data.media_id}`, ip: getClientIp(request), serverId });
         return NextResponse.json({ success: true });
       }
       case "delete": {
-        if (!body.server_name || !body.media_id) {
-          return NextResponse.json({ error: "server_name and media_id required" }, { status: 400 });
+        const parsed = mediaActionSchema.safeParse(body);
+        if (!parsed.success) {
+          return NextResponse.json({ error: "Invalid input", details: parsed.error.flatten().fieldErrors }, { status: 400 });
         }
-        await deleteMedia(body.server_name, body.media_id, conn);
-        await logAudit({ action: "media.deleted", actor: auth.email, target: `${body.server_name}/${body.media_id}`, ip: getClientIp(request), serverId });
+        await deleteMedia(parsed.data.server_name, parsed.data.media_id, conn);
+        await logAudit({ action: "media.deleted", actor: auth.email, target: `${parsed.data.server_name}/${parsed.data.media_id}`, ip: getClientIp(request), serverId });
         return NextResponse.json({ success: true });
       }
       case "delete_by_date": {
@@ -135,35 +144,39 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(result);
       }
       case "protect": {
-        if (!body.media_id) {
-          return NextResponse.json({ error: "media_id required" }, { status: 400 });
+        const mediaId = z.string().min(1).max(500).safeParse(body.media_id);
+        if (!mediaId.success) {
+          return NextResponse.json({ error: "media_id is required" }, { status: 400 });
         }
-        await protectMedia(body.media_id, conn);
-        await logAudit({ action: "media.protected", actor: auth.email, target: body.media_id, ip: getClientIp(request), serverId });
+        await protectMedia(mediaId.data, conn);
+        await logAudit({ action: "media.protected", actor: auth.email, target: mediaId.data, ip: getClientIp(request), serverId });
         return NextResponse.json({ success: true });
       }
       case "unprotect": {
-        if (!body.media_id) {
-          return NextResponse.json({ error: "media_id required" }, { status: 400 });
+        const mediaId = z.string().min(1).max(500).safeParse(body.media_id);
+        if (!mediaId.success) {
+          return NextResponse.json({ error: "media_id is required" }, { status: 400 });
         }
-        await unprotectMedia(body.media_id, conn);
-        await logAudit({ action: "media.unprotected", actor: auth.email, target: body.media_id, ip: getClientIp(request), serverId });
+        await unprotectMedia(mediaId.data, conn);
+        await logAudit({ action: "media.unprotected", actor: auth.email, target: mediaId.data, ip: getClientIp(request), serverId });
         return NextResponse.json({ success: true });
       }
       case "quarantine_room": {
-        if (!body.room_id) {
-          return NextResponse.json({ error: "room_id required" }, { status: 400 });
+        const parsed = mediaQuarantineRoomSchema.safeParse(body);
+        if (!parsed.success) {
+          return NextResponse.json({ error: "Invalid input", details: parsed.error.flatten().fieldErrors }, { status: 400 });
         }
-        const result = await quarantineRoomMedia(body.room_id, conn);
-        await logAudit({ action: "media.quarantined", actor: auth.email, target: body.room_id, detail: `quarantined ${result.num_quarantined} items`, ip: getClientIp(request), serverId });
+        const result = await quarantineRoomMedia(parsed.data.room_id, conn);
+        await logAudit({ action: "media.quarantined", actor: auth.email, target: parsed.data.room_id, detail: `quarantined ${result.num_quarantined} items`, ip: getClientIp(request), serverId });
         return NextResponse.json(result);
       }
       case "quarantine_user": {
-        if (!body.user_id) {
-          return NextResponse.json({ error: "user_id required" }, { status: 400 });
+        const parsed = mediaQuarantineUserSchema.safeParse(body);
+        if (!parsed.success) {
+          return NextResponse.json({ error: "Invalid input", details: parsed.error.flatten().fieldErrors }, { status: 400 });
         }
-        const result = await quarantineUserMedia(body.user_id, conn);
-        await logAudit({ action: "media.quarantined", actor: auth.email, target: body.user_id, detail: `quarantined ${result.num_quarantined} items`, ip: getClientIp(request), serverId });
+        const result = await quarantineUserMedia(parsed.data.user_id, conn);
+        await logAudit({ action: "media.quarantined", actor: auth.email, target: parsed.data.user_id, detail: `quarantined ${result.num_quarantined} items`, ip: getClientIp(request), serverId });
         return NextResponse.json(result);
       }
       default:

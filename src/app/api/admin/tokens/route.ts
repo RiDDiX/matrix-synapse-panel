@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requireAdmin, requirePermission } from "@/lib/auth-guard";
 import { listTokens, createToken, SynapseApiError } from "@/lib/synapse";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
@@ -36,9 +36,6 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireAdmin();
-  if (auth instanceof NextResponse) return auth;
-
   const body = await request.json().catch(() => null);
   const parsed = createTokenSchema.safeParse(body);
 
@@ -51,6 +48,9 @@ export async function POST(request: NextRequest) {
 
   const serverId = body?.serverId as string | undefined;
   if (!serverId) return NextResponse.json({ error: "serverId is required" }, { status: 400 });
+
+  const auth = await requirePermission("tokens.write", serverId);
+  if (auth instanceof NextResponse) return auth;
 
   const { label, note, ...synapseParams } = parsed.data;
   const ip = getClientIp(request);

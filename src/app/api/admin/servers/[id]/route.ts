@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requireAdmin, requireGlobalAdmin } from "@/lib/auth-guard";
 import {
   getServerById,
   updateServer,
@@ -31,7 +31,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 }
 
 export async function PUT(request: NextRequest, context: RouteContext) {
-  const auth = await requireAdmin();
+  const auth = await requireGlobalAdmin();
   if (auth instanceof NextResponse) return auth;
 
   const { id } = await context.params;
@@ -65,7 +65,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
-  const auth = await requireAdmin();
+  const auth = await requireGlobalAdmin();
   if (auth instanceof NextResponse) return auth;
 
   const { id } = await context.params;
@@ -127,7 +127,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 }
 
 export async function DELETE(request: NextRequest, context: RouteContext) {
-  const auth = await requireAdmin();
+  const auth = await requireGlobalAdmin();
   if (auth instanceof NextResponse) return auth;
 
   const { id } = await context.params;

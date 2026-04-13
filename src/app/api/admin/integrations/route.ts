@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requireAdmin, requirePermission } from "@/lib/auth-guard";
 import { listInstalledIntegrations, installIntegration } from "@/lib/integrations/engine";
 import { getCatalog, searchCatalog } from "@/lib/integrations/catalog";
 import { installIntegrationSchema } from "@/lib/validation";
@@ -26,9 +26,6 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireAdmin();
-  if (auth instanceof NextResponse) return auth;
-
   const body = await request.json().catch(() => null);
   const parsed = installIntegrationSchema.safeParse(body);
 
@@ -38,6 +35,9 @@ export async function POST(request: NextRequest) {
 
   const serverId = body?.serverId as string | undefined;
   if (!serverId) return NextResponse.json({ error: "serverId is required" }, { status: 400 });
+
+  const auth = await requirePermission("integrations.write", serverId);
+  if (auth instanceof NextResponse) return auth;
 
   const result = await installIntegration(parsed.data.catalogId, serverId, auth.email);
 

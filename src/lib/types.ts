@@ -165,4 +165,14 @@ export type AuditAction =
   | "export.generated"
   | "space.created"
   | "space.child.added"
-  | "space.child.removed";
+  | "space.child.removed"
+  | "admin.permission.granted"
+  | "admin.permission.revoked"
+  | "room.deleted"
+  | "user.device.deleted"
+  | "user.devices.logout_all"
+  | "user.shadow_ban.set"
+  | "user.shadow_ban.cleared"
+  | "room.admin.granted"
+  | "server_notice.sent"
+  | "user.whois.viewed";

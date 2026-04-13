@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requireAdmin, requirePermission } from "@/lib/auth-guard";
 import { listBots, createBot } from "@/lib/integrations/bots";
 import { BOT_TEMPLATES } from "@/lib/integrations/catalog/bot-templates";
 import { createBotSchema } from "@/lib/validation";
@@ -24,9 +24,6 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireAdmin();
-  if (auth instanceof NextResponse) return auth;
-
   const body = await request.json().catch(() => null);
   const parsed = createBotSchema.safeParse(body);
 
@@ -36,6 +33,9 @@ export async function POST(request: NextRequest) {
 
   const serverId = body?.serverId as string | undefined;
   if (!serverId) return NextResponse.json({ error: "serverId is required" }, { status: 400 });
+
+  const auth = await requirePermission("bots.write", serverId);
+  if (auth instanceof NextResponse) return auth;
 
   try {
     const bot = await createBot({

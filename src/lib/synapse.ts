@@ -17,6 +17,15 @@ import {
   adminJoinRoom,
   adminRoomMembers,
   adminLeaveRoom,
+  adminDeleteRoom,
+  adminMakeRoomAdmin,
+  adminUserDevices,
+  adminUserDevice,
+  adminUserDeleteDevices,
+  adminUserShadowBan,
+  adminUserWhois,
+  adminUserJoinedRooms,
+  ADMIN_SEND_SERVER_NOTICE,
   CLIENT_VERSIONS,
   CLIENT_REGISTER,
   CLIENT_WHOAMI,
@@ -1311,5 +1320,170 @@ export async function getUsersMediaStatistics(
   const path = qs ? `${ADMIN_STATISTICS_USERS_MEDIA}?${qs}` : ADMIN_STATISTICS_USERS_MEDIA;
   return synapseRequest<{ users: UserMediaStats[]; total: number; next_token?: number }>(
     c.internalUrl, path, { method: "GET", headers: adminHeaders(c) }
+  );
+}
+
+// --- Delete room (Admin API) ---
+
+export interface DeleteRoomOptions {
+  block?: boolean;
+  purge?: boolean;
+  force_purge?: boolean;
+  new_room_user_id?: string;
+  room_name?: string;
+  message?: string;
+}
+
+export async function deleteRoom(
+  roomId: string,
+  options: DeleteRoomOptions = {},
+  conn?: SynapseConnection
+): Promise<{ kicked_users: string[]; failed_to_kick_users: string[]; local_aliases: string[]; new_room_id: string | null }> {
+  const c = conn ?? getDefaultConnection();
+  return synapseRequest(
+    c.internalUrl,
+    adminDeleteRoom(roomId),
+    { method: "DELETE", headers: adminHeaders(c), body: JSON.stringify(options) }
+  );
+}
+
+// --- Make a user room admin ---
+
+export async function makeUserRoomAdmin(
+  roomId: string,
+  userId: string,
+  conn?: SynapseConnection
+): Promise<void> {
+  const c = conn ?? getDefaultConnection();
+  await synapseRequest<Record<string, unknown>>(
+    c.internalUrl,
+    adminMakeRoomAdmin(roomId),
+    { method: "POST", headers: adminHeaders(c), body: JSON.stringify({ user_id: userId }) }
+  );
+}
+
+// --- User devices (Admin API) ---
+
+export interface UserDevice {
+  device_id: string;
+  display_name: string | null;
+  last_seen_ip: string | null;
+  last_seen_user_agent: string | null;
+  last_seen_ts: number | null;
+}
+
+export async function listUserDevices(
+  userId: string,
+  conn?: SynapseConnection
+): Promise<{ devices: UserDevice[]; total: number }> {
+  const c = conn ?? getDefaultConnection();
+  return synapseRequest(
+    c.internalUrl,
+    adminUserDevices(userId),
+    { method: "GET", headers: adminHeaders(c) }
+  );
+}
+
+export async function deleteUserDevice(
+  userId: string,
+  deviceId: string,
+  conn?: SynapseConnection
+): Promise<void> {
+  const c = conn ?? getDefaultConnection();
+  await synapseRequest<Record<string, unknown>>(
+    c.internalUrl,
+    adminUserDevice(userId, deviceId),
+    { method: "DELETE", headers: adminHeaders(c) }
+  );
+}
+
+export async function deleteUserDevices(
+  userId: string,
+  deviceIds: string[],
+  conn?: SynapseConnection
+): Promise<void> {
+  const c = conn ?? getDefaultConnection();
+  await synapseRequest<Record<string, unknown>>(
+    c.internalUrl,
+    adminUserDeleteDevices(userId),
+    { method: "POST", headers: adminHeaders(c), body: JSON.stringify({ devices: deviceIds }) }
+  );
+}
+
+// --- Shadow ban (Admin API) ---
+
+export async function setUserShadowBan(
+  userId: string,
+  banned: boolean,
+  conn?: SynapseConnection
+): Promise<void> {
+  const c = conn ?? getDefaultConnection();
+  await synapseRequest<Record<string, unknown>>(
+    c.internalUrl,
+    adminUserShadowBan(userId),
+    { method: banned ? "POST" : "DELETE", headers: adminHeaders(c) }
+  );
+}
+
+// --- Whois (Admin API) ---
+
+export interface WhoisResult {
+  user_id: string;
+  devices: Record<string, {
+    sessions: Array<{
+      connections: Array<{ ip: string; last_seen: number; user_agent: string }>;
+    }>;
+  }>;
+}
+
+export async function whoisUser(
+  userId: string,
+  conn?: SynapseConnection
+): Promise<WhoisResult> {
+  const c = conn ?? getDefaultConnection();
+  return synapseRequest(
+    c.internalUrl,
+    adminUserWhois(userId),
+    { method: "GET", headers: adminHeaders(c) }
+  );
+}
+
+// --- User joined rooms (Admin API) ---
+
+export async function listUserJoinedRooms(
+  userId: string,
+  conn?: SynapseConnection
+): Promise<{ joined_rooms: string[]; total: number }> {
+  const c = conn ?? getDefaultConnection();
+  return synapseRequest(
+    c.internalUrl,
+    adminUserJoinedRooms(userId),
+    { method: "GET", headers: adminHeaders(c) }
+  );
+}
+
+// --- Server notices (Admin API) ---
+
+export interface ServerNoticeContent {
+  msgtype: string;
+  body: string;
+  format?: string;
+  formatted_body?: string;
+}
+
+export async function sendServerNotice(
+  params: {
+    user_id: string;
+    content: ServerNoticeContent;
+    type?: string;
+    state_key?: string;
+  },
+  conn?: SynapseConnection
+): Promise<{ event_id: string }> {
+  const c = conn ?? getDefaultConnection();
+  return synapseRequest(
+    c.internalUrl,
+    ADMIN_SEND_SERVER_NOTICE,
+    { method: "POST", headers: adminHeaders(c), body: JSON.stringify(params) }
   );
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requireAdmin, requirePermission } from "@/lib/auth-guard";
 import { getServerConnectionById } from "@/lib/servers";
 import { SynapseApiError } from "@/lib/synapse";
 import {
@@ -180,17 +180,17 @@ export async function GET(request: NextRequest, context: RouteContext) {
  *          join, leave, set_alias, delete_alias, upgrade
  */
 export async function POST(request: NextRequest, context: RouteContext) {
-  const auth = await requireAdmin();
-  if (auth instanceof NextResponse) return auth;
-
-  const { roomId: rawRoomId } = await context.params;
-  const roomId = decodeURIComponent(rawRoomId);
-
   const url = new URL(request.url);
   const serverId = url.searchParams.get("serverId");
   if (!serverId) {
     return NextResponse.json({ error: "serverId is required" }, { status: 400 });
   }
+
+  const auth = await requirePermission("rooms.write", serverId);
+  if (auth instanceof NextResponse) return auth;
+
+  const { roomId: rawRoomId } = await context.params;
+  const roomId = decodeURIComponent(rawRoomId);
 
   const body = await request.json().catch(() => null);
   if (!body || !body.action) {
