@@ -20,6 +20,7 @@ interface SynapseUser {
   creation_ts: number;
   last_seen_ts: number | null;
   locked: boolean;
+  erased?: boolean;
 }
 
 const PAGE_SIZE = 50;
@@ -165,7 +166,12 @@ export default function UserControlPage() {
   }
 
   function confirmErase(userId: string) {
-    if (confirm(`PERMANENTLY ERASE ${userId}? This will deactivate the account AND delete all user data (GDPR erase). This CANNOT be undone.`)) {
+    if (
+      confirm(
+        `PERMANENTLY ERASE ${userId}? This deactivates the account and deletes all user data (GDPR erase) and cannot be undone. ` +
+          `Note: Synapse never frees a user ID — ${userId} stays permanently reserved and can never be re-registered.`
+      )
+    ) {
       handleAction(userId, "deactivate", { erase: true });
     }
   }
@@ -443,14 +449,27 @@ export default function UserControlPage() {
                         {actionLoading === user.name ? (
                           <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
                         ) : user.deactivated ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setReactivateUser(user.name)}
-                            title="Reactivate user"
-                          >
-                            <RotateCcw className="w-3.5 h-3.5 mr-1" /> Reactivate
-                          </Button>
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setReactivateUser(user.name)}
+                              title="Reactivate user"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5 mr-1" /> Reactivate
+                            </Button>
+                            {!user.erased && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => confirmErase(user.name)}
+                                title="Erase user data (GDPR delete)"
+                                className="text-destructive hover:text-destructive"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 mr-1" /> Erase
+                              </Button>
+                            )}
+                          </>
                         ) : (
                           <>
                             {user.locked ? (

@@ -773,6 +773,7 @@ export interface SynapseUserListEntry {
   creation_ts: number;
   last_seen_ts: number | null;
   locked: boolean;
+  erased?: boolean;
 }
 
 /**
