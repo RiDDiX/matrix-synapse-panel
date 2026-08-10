@@ -19,13 +19,20 @@ The integration system provides:
 
 ## Catalog
 
-The built-in catalog includes:
+The built-in catalog includes 10 bridges:
 
 | Bridge | Package | Maturity | Description |
 |---|---|---|---|
 | **WhatsApp** | mautrix-whatsapp | Stable | End-to-end bridging with double puppeting support |
-| **Signal** | mautrix-signal | Beta | Requires signald sidecar for Signal protocol |
-| **Telegram** | mautrix-telegram | Beta | Requires Telegram API credentials (api_id, api_hash) |
+| **Signal** | mautrix-signal | Beta | Bridges Signal chats to Matrix |
+| **Telegram** | mautrix-telegram | Stable | Requires Telegram API credentials (api_id, api_hash) |
+| **Slack** | mautrix-slack | Stable | Bridges Slack workspaces |
+| **Discord** | mautrix-discord | Beta | Bridges Discord servers and DMs |
+| **Google Messages** | mautrix-gmessages | Beta | Bridges Google Messages (requires a paired Android phone) |
+| **Meta** | mautrix-meta | Beta | Bridges Facebook Messenger and Instagram DMs |
+| **Google Chat** | mautrix-googlechat | Beta | Bridges Google Chat |
+| **IRC** | matrix-appservice-irc | Stable | Bridges IRC networks |
+| **Twitter/X** | mautrix-twitter | Beta | Bridges Twitter/X DMs |
 
 Each catalog entry defines:
 - Required secrets (API keys, tokens)

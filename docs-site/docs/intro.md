@@ -24,8 +24,9 @@ title: Introduction
 | **Token Management** | Create, update, disable, and delete registration tokens with labels and notes |
 | **Public Registration** | Branded form with invitation code validation and Matrix UIA registration flow |
 | **Branding** | Full white-label system: colors, layout presets, logos, content, footer links |
-| **Integrations** | Install and configure bridges (WhatsApp, Signal, Telegram) from a catalog |
+| **Integrations** | Install and configure 10 bridges (WhatsApp, Signal, Telegram, Slack, Discord, Google Messages, Meta, Google Chat, IRC, Twitter/X) from a catalog |
 | **Bots** | Create bots from templates (welcome, moderation, keyword responder, etc.) |
+| **Backup & Reset** | Generate homeserver backup kits and reset/wipe a server via the Admin API or a host-level script |
 | **Audit Log** | Complete audit trail for all admin and registration activity |
 | **Diagnostics** | Real-time Synapse connectivity and configuration checks |
 | **Security** | AES-256-GCM encryption, Zod validation, rate limiting, security headers |

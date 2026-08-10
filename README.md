@@ -29,6 +29,8 @@ Provides an admin dashboard for managing registration tokens, rooms, integration
 - **Token QR Codes** — generate QR codes for invite links, share modal with token/link copy and QR download (uses `qrcode` library)
 - **Server Statistics** — per-user media usage statistics with bar visualization, sortable by size/count/user/name, search filter — via `/_synapse/admin/v1/statistics/users/media`
 - **Data Export** — export tokens, audit logs, or server configs as JSON or CSV; scoped per server; respects limits
+- **Backup** — generate a ready-to-run backup kit (`backup.sh`, `restore.sh`, cron line, checklist) for the homeserver's database, media store, and config/signing key; Docker and native deployments; a preparation tool that produces scripts, not a live backup runner
+- **Server Reset** — soft-wipe a homeserver via official Admin API endpoints (delete + purge all rooms, deactivate all non-admin users, delete all media, delete all registration tokens) with type-the-server-name confirmation; plus a generated host-level factory reset script (drop database, wipe media store) with a federation warning
 - **Webhook Notifications** — configure HTTP webhook endpoints that fire on admin events (token CRUD, user changes, media actions, federation resets, etc.); HMAC-SHA256 signature verification; per-server or global scope; last-status tracking
 - **Admin Permissions (RBAC)** — granular per-user, per-server permission system with 30+ permission types; grant/revoke via UI; global admins retain full access; fine-grained control for delegated administration
 - **Branding Management** — full white-label system: visual identity, theme colors, layout presets, custom content, footer links, asset uploads, draft/publish workflow with live preview
@@ -246,6 +248,10 @@ Ensure `X-Forwarded-For` and `X-Real-IP` headers are passed for accurate rate li
 | `POST` | `/api/admin/rooms/:roomId?serverId=` | Room actions (send_message, invite, kick, ban, unban, join, leave, set_alias, delete_alias, set_state, upgrade, send_threaded_reply) |
 | `POST` | `/api/admin/server-prep` | Generate Synapse server prep config files |
 | `PUT` | `/api/admin/server-prep` | Validate server prep config (without generating) |
+| `POST` | `/api/admin/backup` | Generate a backup kit (requires `backup` permission) |
+| `POST` | `/api/admin/reset?serverId=` | Soft-wipe action (delete_all_rooms, deactivate_all_users, delete_all_media, delete_all_tokens; global admin) |
+| `PUT` | `/api/admin/reset?serverId=` | Generate host-level factory reset script (global admin) |
+| `GET` | `/api/admin/reset?serverId=&deleteId=` | Poll async room-deletion status (global admin) |
 
 ## Database
 
@@ -309,10 +315,17 @@ The admin dashboard includes an integration management platform at `/admin/integ
 
 ### Catalog
 
-Pre-configured catalog entries for:
-- **WhatsApp Bridge** (mautrix-whatsapp) — stable, double puppeting, end-to-end bridging
-- **Signal Bridge** (mautrix-signal) — beta, requires signald sidecar
-- **Telegram Bridge** (mautrix-telegram) — beta, requires Telegram API credentials
+Pre-configured catalog entries for 10 bridges:
+- **WhatsApp Bridge** (mautrix-whatsapp) — stable
+- **Signal Bridge** (mautrix-signal) — beta
+- **Telegram Bridge** (mautrix-telegram) — stable
+- **Slack Bridge** (mautrix-slack) — stable
+- **Discord Bridge** (mautrix-discord) — beta
+- **Google Messages Bridge** (mautrix-gmessages) — beta
+- **Meta Bridge** (mautrix-meta, Facebook & Instagram) — beta
+- **Google Chat Bridge** (mautrix-googlechat) — beta
+- **IRC Bridge** (matrix-appservice-irc) — stable
+- **Twitter/X Bridge** (mautrix-twitter) — beta
 
 ### Deployment Modes
 
@@ -407,6 +420,32 @@ Configurable options:
 - Docker container and network names
 
 All generated config keys reference the official Synapse configuration documentation.
+
+## Backup
+
+The admin dashboard includes a backup kit generator at `/admin/backup`.
+
+Synapse has no backup API. A complete homeserver backup consists of the database, the media store, and the config directory (including the signing key), all of which live on the homeserver host. Like Server Preparation, this is a **preparation tool**: it generates scripts; you deploy and run them on the host.
+
+Generated artifacts:
+- **backup.sh** — `pg_dump` of the database (via `docker exec` or direct `pg_dump`), optional media store archive, config/signing-key archive, and retention cleanup
+- **restore.sh** — restores a chosen backup directory into an empty database and the media/config paths, with an interactive confirmation
+- **crontab line** — schedules `backup.sh` with logging
+- **checklist** — deployment and safety steps
+
+Both Docker (postgres in a container) and native (postgres on the host) deployments are supported. Panel data (token metadata, audit logs, server list) is exported separately on the Export page. Backup guidance follows the [official Synapse documentation](https://element-hq.github.io/synapse/latest/usage/administration/backups.html).
+
+## Server Reset
+
+The admin dashboard includes server reset tools at `/admin/reset`. All actions are **global-admin only** and require typing the exact server name to confirm, checked server-side.
+
+Soft wipe — performed entirely through official Synapse Admin API endpoints:
+- **Delete all rooms** — async v2 room deletion with optional purge and block, plus delete-status polling
+- **Deactivate all users** — deactivates every non-admin account (admin accounts are skipped so the panel's own admin token stays valid), with optional GDPR erase
+- **Delete all media** — deletes all local media and purges the remote media cache
+- **Delete all registration tokens** — removes every token and its panel metadata
+
+Factory reset script — a true reset (empty database, empty media store) cannot be done via the Admin API, so the panel generates a host-level script that stops Synapse, drops and recreates the database, wipes the media store, and restarts. The script warns that wiping the database while keeping the same `server_name` breaks federation; a new `server_name` is recommended after a full wipe, per the [Synapse admin FAQ](https://element-hq.github.io/synapse/latest/usage/administration/admin_faq.html).
 
 ## License
 

@@ -25,6 +25,7 @@ const sidebars: SidebarsConfig = {
         'features/branding',
         'features/integrations',
         'features/bots',
+        'features/backup-reset',
         'features/audit-log',
         'features/diagnostics',
       ],
