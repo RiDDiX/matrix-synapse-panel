@@ -67,6 +67,16 @@ export function adminDeleteRoom(roomId: string): string {
   return `/_synapse/admin/v1/rooms/${encodeURIComponent(roomId)}`;
 }
 
+// Delete room (v2, async): https://element-hq.github.io/synapse/latest/admin_api/rooms.html#version-2-new-version
+export function adminDeleteRoomV2(roomId: string): string {
+  return `/_synapse/admin/v2/rooms/${encodeURIComponent(roomId)}`;
+}
+
+// Delete status by delete_id: https://element-hq.github.io/synapse/latest/admin_api/rooms.html#status-of-deleting-rooms
+export function adminRoomDeleteStatus(deleteId: string): string {
+  return `/_synapse/admin/v2/rooms/delete_status/${encodeURIComponent(deleteId)}`;
+}
+
 // Make a user the new admin of a room:
 // https://element-hq.github.io/synapse/latest/admin_api/rooms.html#make-room-admin-api
 export function adminMakeRoomAdmin(roomId: string): string {
@@ -274,6 +284,10 @@ export function adminDeleteMedia(serverName: string, mediaId: string): string {
 export function adminDeleteMediaByDate(serverName: string): string {
   return `/_synapse/admin/v1/media/${encodeURIComponent(serverName)}/delete`;
 }
+
+// Purge remote media cache: POST /_synapse/admin/v1/purge_media_cache?before_ts={ts}
+// https://element-hq.github.io/synapse/latest/admin_api/media_admin_api.html#purge-remote-media-api
+export const ADMIN_PURGE_MEDIA_CACHE = "/_synapse/admin/v1/purge_media_cache";
 
 // Protect media from purge: POST /_synapse/admin/v1/media/protect/{mediaId}
 export function adminProtectMedia(mediaId: string): string {

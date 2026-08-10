@@ -33,6 +33,7 @@ const VALID_PERMISSIONS = [
   "spaces.write",
   "server_prep",
   "statistics",
+  "backup",
 ];
 
 /**

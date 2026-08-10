@@ -21,6 +21,9 @@ import {
   mediaActionSchema,
   createSpaceSchema,
   spaceChildSchema,
+  backupConfigSchema,
+  resetScriptConfigSchema,
+  serverResetSchema,
 } from "@/lib/validation";
 
 describe("loginSchema", () => {
@@ -665,5 +668,133 @@ describe("spaceChildSchema", () => {
   it("accepts optional order", () => {
     const result = spaceChildSchema.safeParse({ room_id: "!abc:example.com", order: "aaa", suggested: true });
     expect(result.success).toBe(true);
+  });
+});
+
+describe("backupConfigSchema", () => {
+  const valid = {
+    serverName: "matrix.example.com",
+    deployment: "docker",
+    postgresContainer: "synapse-db",
+    postgresDb: "synapse",
+    postgresUser: "synapse",
+    configPath: "/data/synapse/config",
+    mediaStorePath: "/data/synapse/media_store",
+    backupDir: "/backups/synapse",
+    cronSchedule: "0 3 * * *",
+  };
+
+  it("accepts a valid docker config with defaults", () => {
+    const result = backupConfigSchema.safeParse(valid);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.includeMedia).toBe(true);
+      expect(result.data.retentionDays).toBe(14);
+    }
+  });
+
+  it("requires postgresContainer for docker deployments", () => {
+    const result = backupConfigSchema.safeParse({ ...valid, postgresContainer: undefined });
+    expect(result.success).toBe(false);
+  });
+
+  it("requires postgresHost for native deployments", () => {
+    const result = backupConfigSchema.safeParse({ ...valid, deployment: "native" });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts a valid native config", () => {
+    const result = backupConfigSchema.safeParse({
+      ...valid,
+      deployment: "native",
+      postgresHost: "localhost",
+      postgresPort: 5432,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects relative paths", () => {
+    const result = backupConfigSchema.safeParse({ ...valid, backupDir: "backups" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects paths with shell metacharacters", () => {
+    const result = backupConfigSchema.safeParse({ ...valid, backupDir: "/backups; rm -rf /" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects database names with shell metacharacters", () => {
+    const result = backupConfigSchema.safeParse({ ...valid, postgresDb: "synapse; drop" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects invalid cron expressions", () => {
+    const result = backupConfigSchema.safeParse({ ...valid, cronSchedule: "daily at 3am" });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("resetScriptConfigSchema", () => {
+  const valid = {
+    serverName: "matrix.example.com",
+    deployment: "docker",
+    postgresContainer: "synapse-db",
+    postgresDb: "synapse",
+    postgresUser: "synapse",
+    mediaStorePath: "/data/synapse/media_store",
+    synapseService: "synapse",
+  };
+
+  it("accepts a valid config and defaults keepSigningKey to true", () => {
+    const result = resetScriptConfigSchema.safeParse(valid);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.keepSigningKey).toBe(true);
+    }
+  });
+
+  it("requires postgresHost for native deployments", () => {
+    const result = resetScriptConfigSchema.safeParse({ ...valid, deployment: "native" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects service names with shell metacharacters", () => {
+    const result = resetScriptConfigSchema.safeParse({ ...valid, synapseService: "synapse; reboot" });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("serverResetSchema", () => {
+  it("accepts delete_all_rooms with defaults", () => {
+    const result = serverResetSchema.safeParse({ action: "delete_all_rooms", confirm: "matrix.example.com" });
+    expect(result.success).toBe(true);
+    if (result.success && result.data.action === "delete_all_rooms") {
+      expect(result.data.purge).toBe(true);
+      expect(result.data.block).toBe(false);
+    }
+  });
+
+  it("accepts deactivate_all_users with erase flag", () => {
+    const result = serverResetSchema.safeParse({
+      action: "deactivate_all_users",
+      confirm: "matrix.example.com",
+      erase: true,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts delete_all_media and delete_all_tokens", () => {
+    expect(serverResetSchema.safeParse({ action: "delete_all_media", confirm: "x" }).success).toBe(true);
+    expect(serverResetSchema.safeParse({ action: "delete_all_tokens", confirm: "x" }).success).toBe(true);
+  });
+
+  it("rejects unknown actions", () => {
+    const result = serverResetSchema.safeParse({ action: "drop_database", confirm: "x" });
+    expect(result.success).toBe(false);
+  });
+
+  it("requires a confirm string", () => {
+    const result = serverResetSchema.safeParse({ action: "delete_all_rooms", confirm: "" });
+    expect(result.success).toBe(false);
   });
 });

@@ -18,6 +18,9 @@ import {
   adminRoomMembers,
   adminLeaveRoom,
   adminDeleteRoom,
+  adminDeleteRoomV2,
+  adminRoomDeleteStatus,
+  ADMIN_PURGE_MEDIA_CACHE,
   adminMakeRoomAdmin,
   adminUserDevices,
   adminUserDevice,
@@ -1050,7 +1053,8 @@ export async function deleteMediaByDate(
   const c = conn ?? getDefaultConnection();
   const query = new URLSearchParams();
   query.set("before_ts", String(beforeTs));
-  if (keepProfiles) query.set("keep_profiles", "true");
+  // Synapse defaults keep_profiles to true, so it must be sent explicitly for false to take effect.
+  query.set("keep_profiles", String(keepProfiles));
   return synapseRequest<{ total: number }>(
     c.internalUrl, `${adminDeleteMediaByDate(serverName)}?${query.toString()}`,
     { method: "POST", headers: adminHeaders(c), body: "{}" }
@@ -1344,6 +1348,67 @@ export async function deleteRoom(
     c.internalUrl,
     adminDeleteRoom(roomId),
     { method: "DELETE", headers: adminHeaders(c), body: JSON.stringify(options) }
+  );
+}
+
+/**
+ * Delete a room asynchronously via DELETE /_synapse/admin/v2/rooms/{roomId}.
+ * Returns a delete_id that can be polled with getRoomDeleteStatus().
+ * Ref: https://element-hq.github.io/synapse/latest/admin_api/rooms.html#version-2-new-version
+ */
+export async function deleteRoomAsync(
+  roomId: string,
+  options: DeleteRoomOptions = {},
+  conn?: SynapseConnection
+): Promise<{ delete_id: string }> {
+  const c = conn ?? getDefaultConnection();
+  return synapseRequest<{ delete_id: string }>(
+    c.internalUrl,
+    adminDeleteRoomV2(roomId),
+    { method: "DELETE", headers: adminHeaders(c), body: JSON.stringify(options) }
+  );
+}
+
+export interface RoomDeleteStatus {
+  status: "shutting_down" | "purging" | "complete" | "failed";
+  error?: string;
+  shutdown_room?: {
+    kicked_users: string[];
+    failed_to_kick_users: string[];
+    local_aliases: string[];
+    new_room_id: string | null;
+  };
+}
+
+/**
+ * Get the status of an async room deletion via GET /_synapse/admin/v2/rooms/delete_status/{deleteId}.
+ * Ref: https://element-hq.github.io/synapse/latest/admin_api/rooms.html#status-of-deleting-rooms
+ */
+export async function getRoomDeleteStatus(
+  deleteId: string,
+  conn?: SynapseConnection
+): Promise<RoomDeleteStatus> {
+  const c = conn ?? getDefaultConnection();
+  return synapseRequest<RoomDeleteStatus>(
+    c.internalUrl,
+    adminRoomDeleteStatus(deleteId),
+    { method: "GET", headers: adminHeaders(c) }
+  );
+}
+
+/**
+ * Purge cached remote media older than before_ts via POST /_synapse/admin/v1/purge_media_cache.
+ * Ref: https://element-hq.github.io/synapse/latest/admin_api/media_admin_api.html#purge-remote-media-api
+ */
+export async function purgeRemoteMediaCache(
+  beforeTs: number,
+  conn?: SynapseConnection
+): Promise<{ deleted: number }> {
+  const c = conn ?? getDefaultConnection();
+  return synapseRequest<{ deleted: number }>(
+    c.internalUrl,
+    `${ADMIN_PURGE_MEDIA_CACHE}?before_ts=${beforeTs}`,
+    { method: "POST", headers: adminHeaders(c), body: "{}" }
   );
 }
 

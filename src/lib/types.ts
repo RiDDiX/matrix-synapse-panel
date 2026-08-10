@@ -173,6 +173,12 @@ export type AuditAction =
   | "user.devices.logout_all"
   | "user.shadow_ban.set"
   | "user.shadow_ban.cleared"
+  | "backup.script.generated"
+  | "server.reset.rooms.deleted"
+  | "server.reset.users.deactivated"
+  | "server.reset.media.deleted"
+  | "server.reset.tokens.deleted"
+  | "server.reset.script.generated"
   | "room.admin.granted"
   | "server_notice.sent"
   | "user.whois.viewed";

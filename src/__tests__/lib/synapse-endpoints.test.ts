@@ -13,6 +13,9 @@ import {
   adminLeaveRoom,
   adminRoomDetail,
   adminDeleteRoom,
+  adminDeleteRoomV2,
+  adminRoomDeleteStatus,
+  ADMIN_PURGE_MEDIA_CACHE,
   adminRoomState,
   adminRoomMedia,
   adminUserMedia,
@@ -506,8 +509,27 @@ describe("Statistics admin endpoints", () => {
   });
 });
 
+describe("Room deletion v2 admin endpoints", () => {
+  it("adminDeleteRoomV2 builds correct path", () => {
+    expect(adminDeleteRoomV2("!room:example.com")).toBe("/_synapse/admin/v2/rooms/!room%3Aexample.com");
+  });
+
+  it("adminRoomDeleteStatus builds correct path", () => {
+    expect(adminRoomDeleteStatus("delete123")).toBe("/_synapse/admin/v2/rooms/delete_status/delete123");
+  });
+});
+
+describe("Media purge admin endpoints", () => {
+  it("ADMIN_PURGE_MEDIA_CACHE is the official path", () => {
+    expect(ADMIN_PURGE_MEDIA_CACHE).toBe("/_synapse/admin/v1/purge_media_cache");
+  });
+});
+
 describe("URL separation enforcement", () => {
   it("admin endpoints start with /_synapse/admin/", () => {
+    expect(adminDeleteRoomV2("!r:e.c")).toMatch(/^\/\_synapse\/admin\//);
+    expect(adminRoomDeleteStatus("d1")).toMatch(/^\/\_synapse\/admin\//);
+    expect(ADMIN_PURGE_MEDIA_CACHE).toMatch(/^\/\_synapse\/admin\//);
     expect(ADMIN_REGISTRATION_TOKENS).toMatch(/^\/\_synapse\/admin\//);
     expect(ADMIN_REGISTRATION_TOKENS_NEW).toMatch(/^\/\_synapse\/admin\//);
     expect(ADMIN_USERS).toMatch(/^\/\_synapse\/admin\//);

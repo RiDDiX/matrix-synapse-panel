@@ -337,6 +337,75 @@ export const spaceChildSchema = z.object({
   order: z.string().max(50).optional(),
 });
 
+export const backupConfigSchema = z
+  .object({
+    serverName: z.string().min(1).max(255).regex(/^[a-zA-Z0-9.-]+$/, "Invalid server name"),
+    deployment: z.enum(["docker", "native"]),
+    postgresContainer: z.string().max(255).regex(/^[a-zA-Z0-9._-]*$/).optional(),
+    postgresHost: z.string().max(255).regex(/^[a-zA-Z0-9.-]*$/).optional(),
+    postgresPort: z.number().int().min(1).max(65535).optional(),
+    postgresDb: z.string().min(1).max(63).regex(/^[a-zA-Z0-9_]+$/, "Invalid database name"),
+    postgresUser: z.string().min(1).max(63).regex(/^[a-zA-Z0-9_]+$/, "Invalid database user"),
+    configPath: z.string().min(1).max(500).regex(/^\/[^\s'"`;|&$<>]*$/, "Must be an absolute path"),
+    mediaStorePath: z.string().min(1).max(500).regex(/^\/[^\s'"`;|&$<>]*$/, "Must be an absolute path"),
+    backupDir: z.string().min(1).max(500).regex(/^\/[^\s'"`;|&$<>]*$/, "Must be an absolute path"),
+    includeMedia: z.boolean().default(true),
+    retentionDays: z.number().int().min(1).max(3650).default(14),
+    cronSchedule: z.string().min(9).max(50).regex(/^[\d*/,\s-]+$/, "Invalid cron expression"),
+  })
+  .refine((d) => d.deployment !== "docker" || !!d.postgresContainer, {
+    message: "postgresContainer is required for docker deployments",
+    path: ["postgresContainer"],
+  })
+  .refine((d) => d.deployment !== "native" || !!d.postgresHost, {
+    message: "postgresHost is required for native deployments",
+    path: ["postgresHost"],
+  });
+
+export const resetScriptConfigSchema = z
+  .object({
+    serverName: z.string().min(1).max(255).regex(/^[a-zA-Z0-9.-]+$/, "Invalid server name"),
+    deployment: z.enum(["docker", "native"]),
+    postgresContainer: z.string().max(255).regex(/^[a-zA-Z0-9._-]*$/).optional(),
+    postgresHost: z.string().max(255).regex(/^[a-zA-Z0-9.-]*$/).optional(),
+    postgresPort: z.number().int().min(1).max(65535).optional(),
+    postgresDb: z.string().min(1).max(63).regex(/^[a-zA-Z0-9_]+$/, "Invalid database name"),
+    postgresUser: z.string().min(1).max(63).regex(/^[a-zA-Z0-9_]+$/, "Invalid database user"),
+    mediaStorePath: z.string().min(1).max(500).regex(/^\/[^\s'"`;|&$<>]*$/, "Must be an absolute path"),
+    keepSigningKey: z.boolean().default(true),
+    synapseService: z.string().min(1).max(255).regex(/^[a-zA-Z0-9@._-]+$/, "Invalid service name"),
+  })
+  .refine((d) => d.deployment !== "docker" || !!d.postgresContainer, {
+    message: "postgresContainer is required for docker deployments",
+    path: ["postgresContainer"],
+  })
+  .refine((d) => d.deployment !== "native" || !!d.postgresHost, {
+    message: "postgresHost is required for native deployments",
+    path: ["postgresHost"],
+  });
+
+export const serverResetSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("delete_all_rooms"),
+    confirm: z.string().min(1),
+    purge: z.boolean().default(true),
+    block: z.boolean().default(false),
+  }),
+  z.object({
+    action: z.literal("deactivate_all_users"),
+    confirm: z.string().min(1),
+    erase: z.boolean().default(false),
+  }),
+  z.object({
+    action: z.literal("delete_all_media"),
+    confirm: z.string().min(1),
+  }),
+  z.object({
+    action: z.literal("delete_all_tokens"),
+    confirm: z.string().min(1),
+  }),
+]);
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateTokenInput = z.infer<typeof createTokenSchema>;
 export type UpdateTokenInput = z.infer<typeof updateTokenSchema>;
@@ -371,3 +440,6 @@ export type DeleteRoomInput = z.infer<typeof deleteRoomSchema>;
 export type ShadowBanInput = z.infer<typeof shadowBanSchema>;
 export type SendServerNoticeInput = z.infer<typeof sendServerNoticeSchema>;
 export type MakeRoomAdminInput = z.infer<typeof makeRoomAdminSchema>;
+export type BackupConfigInput = z.infer<typeof backupConfigSchema>;
+export type ResetScriptConfigInput = z.infer<typeof resetScriptConfigSchema>;
+export type ServerResetInput = z.infer<typeof serverResetSchema>;

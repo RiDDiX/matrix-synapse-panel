@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
-import { LayoutDashboard, KeyRound, ScrollText, Activity, Paintbrush, Puzzle, Bot, Stethoscope, Server, Users, LogOut, Moon, Sun, ChevronDown, DoorOpen, Shield, Wrench, Image, Globe, Flag, Trash2, Database, Download, Boxes, Bell, BarChart3, UserCog } from "lucide-react";
+import { LayoutDashboard, KeyRound, ScrollText, Activity, Paintbrush, Puzzle, Bot, Stethoscope, Server, Users, LogOut, Moon, Sun, ChevronDown, DoorOpen, Shield, Wrench, Image, Globe, Flag, Trash2, Database, Download, Boxes, Bell, BarChart3, UserCog, Archive, RotateCcw } from "lucide-react";
 import { useTheme } from "next-themes";
 import { ServerProvider, useServerContext } from "@/lib/server-context";
 
@@ -30,6 +30,8 @@ const navItems = [
   { href: "/admin/audit", label: "Audit Log", icon: ScrollText },
   { href: "/admin/diagnostics", label: "Diagnostics", icon: Activity },
   { href: "/admin/export", label: "Export", icon: Download },
+  { href: "/admin/backup", label: "Backup", icon: Archive },
+  { href: "/admin/reset", label: "Server Reset", icon: RotateCcw },
   { href: "/admin/matrix-login", label: "Admin Login", icon: Shield },
   { href: "/admin/server-prep", label: "Server Prep", icon: Wrench },
   { href: "/admin/integrations/diagnostics", label: "Int. Diagnostics", icon: Stethoscope },
