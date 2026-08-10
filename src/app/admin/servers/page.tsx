@@ -12,6 +12,7 @@ import {
   Trash2,
   Activity,
 } from "lucide-react";
+import { useServerContext } from "@/lib/server-context";
 
 interface ManagedServer {
   id: string;
@@ -32,6 +33,7 @@ interface ManagedServer {
 }
 
 export default function ServersPage() {
+  const { refresh: refreshServerContext } = useServerContext();
   const [servers, setServers] = useState<ManagedServer[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -60,6 +62,12 @@ export default function ServersPage() {
     fetchServers();
   }, [fetchServers]);
 
+  // A mutation changes what the sidebar selector and every server-scoped page read,
+  // so the shared context has to be reloaded alongside this page's own table.
+  const reload = useCallback(async () => {
+    await Promise.all([fetchServers(), refreshServerContext()]);
+  }, [fetchServers, refreshServerContext]);
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -77,7 +85,7 @@ export default function ServersPage() {
       }
       setShowAdd(false);
       setForm({ name: "", slug: "", serverName: "", internalUrl: "", publicUrl: "", adminToken: "", notes: "" });
-      await fetchServers();
+      await reload();
     } catch {
       setError("Network error");
     } finally {
@@ -91,13 +99,13 @@ export default function ServersPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action }),
     });
-    if (res.ok) await fetchServers();
+    if (res.ok) await reload();
   };
 
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Delete server "${name}"? This will remove all associated data. This action cannot be undone.`)) return;
     const res = await fetch(`/api/admin/servers/${id}`, { method: "DELETE" });
-    if (res.ok) await fetchServers();
+    if (res.ok) await reload();
   };
 
   const statusIcon = (s: ManagedServer) => {

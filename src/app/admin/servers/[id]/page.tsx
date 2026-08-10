@@ -13,6 +13,7 @@ import {
   Key,
   Star,
 } from "lucide-react";
+import { useServerContext } from "@/lib/server-context";
 
 interface ServerDetail {
   id: string;
@@ -55,6 +56,7 @@ interface DiagResult {
 export default function ServerDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { refresh: refreshServerContext } = useServerContext();
   const id = params.id as string;
 
   const [server, setServer] = useState<ServerDetail | null>(null);
@@ -106,7 +108,9 @@ export default function ServerDetailPage() {
     });
     if (res.ok) {
       setMsg("Saved");
-      await fetchServer();
+      // The name shows up in the sidebar selector and the server name is used by
+      // every server-scoped page, so reload the shared context as well.
+      await Promise.all([fetchServer(), refreshServerContext()]);
     } else {
       const data = await res.json();
       setMsg(data.error || "Failed to save");
@@ -151,7 +155,7 @@ export default function ServerDetailPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action }),
     });
-    if (res.ok) await fetchServer();
+    if (res.ok) await Promise.all([fetchServer(), refreshServerContext()]);
   };
 
   if (loading) return <div className="text-center py-8 text-muted-foreground">Loading...</div>;

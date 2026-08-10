@@ -107,18 +107,17 @@ function ServerSelector() {
   );
 }
 
-function AdminLayoutInner({ children }: { children: React.ReactNode }) {
+/**
+ * Verifies the session before anything below it mounts. Rendering the server
+ * context only once authenticated means it never starts out with a 401 that
+ * would leave it empty until a hard refresh.
+ */
+function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { theme, setTheme } = useTheme();
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
 
   useEffect(() => {
-    if (pathname === "/admin/login") {
-      setAuthenticated(true);
-      return;
-    }
-
     let cancelled = false;
     fetch("/api/auth/session", { credentials: "same-origin" })
       .then((res) => {
@@ -138,10 +137,6 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
     return () => { cancelled = true; };
   }, [pathname, router]);
 
-  if (pathname === "/admin/login") {
-    return <>{children}</>;
-  }
-
   if (authenticated === null) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -149,6 +144,16 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
+
+  if (!authenticated) return null;
+
+  return <>{children}</>;
+}
+
+function AdminLayoutInner({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { theme, setTheme } = useTheme();
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -237,9 +242,18 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
 }
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+
+  // The login page renders standalone, outside the session gate and the server context.
+  if (pathname === "/admin/login") {
+    return <>{children}</>;
+  }
+
   return (
-    <ServerProvider>
-      <AdminLayoutInner>{children}</AdminLayoutInner>
-    </ServerProvider>
+    <AuthGate>
+      <ServerProvider>
+        <AdminLayoutInner>{children}</AdminLayoutInner>
+      </ServerProvider>
+    </AuthGate>
   );
 }
