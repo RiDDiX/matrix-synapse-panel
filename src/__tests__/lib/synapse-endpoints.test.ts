@@ -15,6 +15,8 @@ import {
   adminDeleteRoom,
   adminDeleteRoomV2,
   adminRoomDeleteStatus,
+  adminUserRedact,
+  adminUserRedactStatus,
   ADMIN_PURGE_MEDIA_CACHE,
   adminRoomState,
   adminRoomMedia,
@@ -525,9 +527,21 @@ describe("Media purge admin endpoints", () => {
   });
 });
 
+describe("User redaction admin endpoints", () => {
+  it("adminUserRedact builds correct path with singular /user/ segment", () => {
+    expect(adminUserRedact("@user:example.com")).toBe("/_synapse/admin/v1/user/%40user%3Aexample.com/redact");
+  });
+
+  it("adminUserRedactStatus builds correct path", () => {
+    expect(adminUserRedactStatus("redact123")).toBe("/_synapse/admin/v1/user/redact_status/redact123");
+  });
+});
+
 describe("URL separation enforcement", () => {
   it("admin endpoints start with /_synapse/admin/", () => {
     expect(adminDeleteRoomV2("!r:e.c")).toMatch(/^\/\_synapse\/admin\//);
+    expect(adminUserRedact("@u:e.c")).toMatch(/^\/\_synapse\/admin\//);
+    expect(adminUserRedactStatus("r1")).toMatch(/^\/\_synapse\/admin\//);
     expect(adminRoomDeleteStatus("d1")).toMatch(/^\/\_synapse\/admin\//);
     expect(ADMIN_PURGE_MEDIA_CACHE).toMatch(/^\/\_synapse\/admin\//);
     expect(ADMIN_REGISTRATION_TOKENS).toMatch(/^\/\_synapse\/admin\//);

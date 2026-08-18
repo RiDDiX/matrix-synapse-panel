@@ -179,6 +179,9 @@ export type AuditAction =
   | "server.reset.media.deleted"
   | "server.reset.tokens.deleted"
   | "server.reset.script.generated"
+  | "user.events.redacted"
+  | "user.media.purged"
+  | "user.external_ids.cleared"
   | "room.admin.granted"
   | "server_notice.sent"
   | "user.whois.viewed";

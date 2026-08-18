@@ -384,6 +384,16 @@ export const resetScriptConfigSchema = z
     path: ["postgresHost"],
   });
 
+export const purgeUserSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("redact_events"),
+    reason: z.string().max(500).optional(),
+  }),
+  z.object({ action: z.literal("delete_media") }),
+  z.object({ action: z.literal("erase") }),
+  z.object({ action: z.literal("clear_external_ids") }),
+]);
+
 export const serverResetSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("delete_all_rooms"),
@@ -443,3 +453,4 @@ export type MakeRoomAdminInput = z.infer<typeof makeRoomAdminSchema>;
 export type BackupConfigInput = z.infer<typeof backupConfigSchema>;
 export type ResetScriptConfigInput = z.infer<typeof resetScriptConfigSchema>;
 export type ServerResetInput = z.infer<typeof serverResetSchema>;
+export type PurgeUserInput = z.infer<typeof purgeUserSchema>;

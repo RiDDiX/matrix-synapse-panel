@@ -7,7 +7,7 @@ import {
   Users, Search, Plus, Shield, Ban, Trash2, RotateCcw,
   Loader2, ChevronLeft, ChevronRight, CheckCircle2, Lock,
   Unlock, Eye, EyeOff, AlertTriangle, UserPlus, Smartphone, DoorOpen,
-  Bell, Ghost, X, Info,
+  Bell, Ghost, X, Info, Eraser, RefreshCw,
 } from "lucide-react";
 
 interface SynapseUser {
@@ -57,6 +57,7 @@ export default function UserControlPage() {
 
   // Details panel
   const [detailsUser, setDetailsUser] = useState<SynapseUser | null>(null);
+  const [purgeUser, setPurgeUser] = useState<SynapseUser | null>(null);
 
   const fetchUsers = useCallback(async (fromOffset = 0, searchTerm = "") => {
     if (!current) return;
@@ -469,6 +470,15 @@ export default function UserControlPage() {
                                 <Trash2 className="w-3.5 h-3.5 mr-1" /> Erase
                               </Button>
                             )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setPurgeUser(user)}
+                              title="Purge all remaining data (events, media, SSO)"
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Eraser className="w-3.5 h-3.5 mr-1" /> Purge
+                            </Button>
                           </>
                         ) : (
                           <>
@@ -552,6 +562,15 @@ export default function UserControlPage() {
           </Button>
         </div>
       </div>
+
+      {purgeUser && current && (
+        <PurgeUserPanel
+          serverId={current.id}
+          user={purgeUser}
+          onClose={() => setPurgeUser(null)}
+          onChanged={() => fetchUsers(from, search)}
+        />
+      )}
 
       {detailsUser && current && (
         <UserDetailsPanel
@@ -858,6 +877,172 @@ function UserDetailsPanel({
               </section>
             </>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PurgeUserPanel({
+  serverId,
+  user,
+  onClose,
+  onChanged,
+}: {
+  serverId: string;
+  user: SynapseUser;
+  onClose: () => void;
+  onChanged: () => void;
+}) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [results, setResults] = useState<Record<string, string>>({});
+  const [redactId, setRedactId] = useState<string | null>(null);
+  const [redactStatus, setRedactStatus] = useState<string | null>(null);
+  const [failedRedactions, setFailedRedactions] = useState(0);
+
+  async function runStep(action: string, label: string) {
+    if (!confirm(`${label} for ${user.name}? This cannot be undone.`)) return;
+    setBusy(action);
+    setErr(null);
+    try {
+      const res = await fetch(`/api/admin/users/${encodeURIComponent(user.name)}/purge?serverId=${serverId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Action failed (${res.status})`);
+
+      if (action === "redact_events") {
+        if (data.redact_id) {
+          setRedactId(data.redact_id);
+          setRedactStatus("scheduled");
+          setResults((r) => ({
+            ...r,
+            [action]: data.rooms_searched
+              ? `Redaction started across ${data.rooms_searched} rooms`
+              : "Redaction started",
+          }));
+        } else {
+          setResults((r) => ({ ...r, [action]: "No rooms to redact" }));
+        }
+      } else if (action === "delete_media") {
+        setResults((r) => ({ ...r, [action]: `${data.deleted} media files deleted` }));
+      } else {
+        setResults((r) => ({ ...r, [action]: "Done" }));
+        onChanged();
+      }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Action failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function pollRedaction() {
+    if (!redactId) return;
+    setBusy("poll");
+    try {
+      const res = await fetch(
+        `/api/admin/users/${encodeURIComponent(user.name)}/purge?serverId=${serverId}&redactId=${encodeURIComponent(redactId)}`
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Status check failed");
+      setRedactStatus(data.status);
+      setFailedRedactions(Object.keys(data.failed_redactions ?? {}).length);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Status check failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const steps = [
+    {
+      action: "redact_events",
+      label: "Redact All Messages",
+      description: "Removes the content of every event this user sent (requires Synapse 1.116+). Runs as a background job.",
+    },
+    {
+      action: "delete_media",
+      label: "Delete All Media",
+      description: "Deletes every local media file this user uploaded, including thumbnails (requires Synapse 1.41+).",
+    },
+    ...(user.erased
+      ? []
+      : [{
+          action: "erase",
+          label: "Erase Account (GDPR)",
+          description: "Deactivates (if not already) and marks the account GDPR-erased: profile blanked, historic messages hidden from new joiners.",
+        }]),
+    {
+      action: "clear_external_ids",
+      label: "Clear SSO Mappings",
+      description: "Removes leftover SSO/external identity mappings, which deactivation does not touch.",
+    },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div
+        className="bg-background rounded-lg border shadow-lg w-full max-w-2xl max-h-[85vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="sticky top-0 bg-background border-b px-5 py-3 flex items-center justify-between">
+          <h3 className="font-semibold flex items-center gap-2">
+            <Eraser className="w-4 h-4 text-destructive" /> Purge User Data
+            <code className="text-xs font-normal text-muted-foreground">{user.name}</code>
+          </h3>
+          <Button variant="ghost" size="sm" onClick={onClose}><X className="w-4 h-4" /></Button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm">
+            <p className="font-medium text-destructive">Irreversible data removal</p>
+            <p className="text-muted-foreground">
+              These steps remove this user&apos;s remaining data via the Synapse Admin API. The user ID
+              itself can never be deleted or re-registered — Synapse keeps it permanently reserved.
+            </p>
+          </div>
+
+          {err && <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive">{err}</div>}
+
+          {steps.map((step) => (
+            <div key={step.action} className="rounded-lg border p-4 space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="font-medium text-sm">{step.label}</p>
+                  <p className="text-xs text-muted-foreground">{step.description}</p>
+                </div>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={busy !== null || !!results[step.action]}
+                  onClick={() => runStep(step.action, step.label)}
+                >
+                  {busy === step.action ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Run"}
+                </Button>
+              </div>
+              {results[step.action] && (
+                <p className="text-xs text-green-700 dark:text-green-400">{results[step.action]}</p>
+              )}
+              {step.action === "redact_events" && redactId && (
+                <div className="flex items-center gap-2 text-xs">
+                  <span className={
+                    redactStatus === "completed" ? "text-green-700 dark:text-green-400" :
+                    redactStatus === "failed" ? "text-destructive" : "text-muted-foreground"
+                  }>
+                    Status: {redactStatus}
+                    {failedRedactions > 0 ? ` (${failedRedactions} events could not be redacted)` : ""}
+                  </span>
+                  <Button variant="outline" size="sm" onClick={pollRedaction} disabled={busy !== null}>
+                    <RefreshCw className={`w-3 h-3 mr-1 ${busy === "poll" ? "animate-spin" : ""}`} /> Refresh
+                  </Button>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       </div>
     </div>

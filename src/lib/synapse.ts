@@ -28,6 +28,8 @@ import {
   adminUserShadowBan,
   adminUserWhois,
   adminUserJoinedRooms,
+  adminUserRedact,
+  adminUserRedactStatus,
   ADMIN_SEND_SERVER_NOTICE,
   CLIENT_VERSIONS,
   CLIENT_REGISTER,
@@ -953,6 +955,27 @@ export async function reactivateUser(
   );
 }
 
+/**
+ * Remove all SSO/external ID mappings from a user via PUT /_synapse/admin/v2/users/{userId}.
+ * Deactivation explicitly leaves external_ids in place; sending an empty list replaces the set.
+ * Ref: https://element-hq.github.io/synapse/latest/admin_api/user_admin_api.html#create-or-modify-account
+ */
+export async function clearUserExternalIds(
+  userId: string,
+  conn?: SynapseConnection
+): Promise<void> {
+  const c = conn ?? getDefaultConnection();
+  await synapseRequest<Record<string, unknown>>(
+    c.internalUrl,
+    adminUserEndpoint(userId),
+    {
+      method: "PUT",
+      headers: adminHeaders(c),
+      body: JSON.stringify({ external_ids: [] }),
+    }
+  );
+}
+
 // --- Media management (Admin API) ---
 
 export interface MediaInfo {
@@ -1045,6 +1068,30 @@ export async function deleteMedia(
     c.internalUrl, adminDeleteMedia(serverName, mediaId),
     { method: "DELETE", headers: adminHeaders(c) }
   );
+}
+
+/**
+ * Delete all local media uploaded by a user via DELETE /_synapse/admin/v1/users/{userId}/media.
+ * The endpoint deletes at most `limit` files per call (default 100), so loop until none remain.
+ * Added in Synapse 1.41.0.
+ * Ref: https://element-hq.github.io/synapse/latest/admin_api/user_admin_api.html#delete-media-uploaded-by-a-user
+ */
+export async function deleteUserMedia(
+  userId: string,
+  conn?: SynapseConnection
+): Promise<{ deleted: number }> {
+  const c = conn ?? getDefaultConnection();
+  let deleted = 0;
+  // ponytail: sequential loop, 100 files per round trip; fine for per-user volumes
+  for (;;) {
+    const res = await synapseRequest<{ deleted_media: string[]; total: number }>(
+      c.internalUrl,
+      `${adminUserMedia(userId)}?limit=100`,
+      { method: "DELETE", headers: adminHeaders(c) }
+    );
+    deleted += res.total;
+    if (res.total === 0) return { deleted };
+  }
 }
 
 export async function deleteMediaByDate(
@@ -1524,6 +1571,51 @@ export async function listUserJoinedRooms(
   return synapseRequest(
     c.internalUrl,
     adminUserJoinedRooms(userId),
+    { method: "GET", headers: adminHeaders(c) }
+  );
+}
+
+
+// --- User event redaction (Admin API) ---
+
+export interface RedactionStatus {
+  status: "scheduled" | "active" | "completed" | "failed";
+  failed_redactions: Record<string, string>;
+}
+
+/**
+ * Redact all events sent by a user via POST /_synapse/admin/v1/user/{userId}/redact.
+ * Asynchronous: returns a redact_id to poll with getUserRedactionStatus().
+ * rooms: [] means "all rooms the user is currently in" — for deactivated users
+ * (no memberships left) pass an explicit room list instead.
+ * Added in Synapse 1.116.0.
+ * Ref: https://element-hq.github.io/synapse/latest/admin_api/user_admin_api.html#redact-events-of-a-user
+ */
+export async function redactUserEvents(
+  userId: string,
+  params: { rooms: string[]; reason?: string; limit?: number; use_admin?: boolean },
+  conn?: SynapseConnection
+): Promise<{ redact_id: string }> {
+  const c = conn ?? getDefaultConnection();
+  return synapseRequest<{ redact_id: string }>(
+    c.internalUrl,
+    adminUserRedact(userId),
+    { method: "POST", headers: adminHeaders(c), body: JSON.stringify(params) }
+  );
+}
+
+/**
+ * Poll a redaction job via GET /_synapse/admin/v1/user/redact_status/{redactId}.
+ * Ref: https://element-hq.github.io/synapse/latest/admin_api/user_admin_api.html#check-the-status-of-a-redaction-process
+ */
+export async function getUserRedactionStatus(
+  redactId: string,
+  conn?: SynapseConnection
+): Promise<RedactionStatus> {
+  const c = conn ?? getDefaultConnection();
+  return synapseRequest<RedactionStatus>(
+    c.internalUrl,
+    adminUserRedactStatus(redactId),
     { method: "GET", headers: adminHeaders(c) }
   );
 }

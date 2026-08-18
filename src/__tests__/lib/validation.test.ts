@@ -24,6 +24,7 @@ import {
   backupConfigSchema,
   resetScriptConfigSchema,
   serverResetSchema,
+  purgeUserSchema,
 } from "@/lib/validation";
 
 describe("loginSchema", () => {
@@ -796,5 +797,26 @@ describe("serverResetSchema", () => {
   it("requires a confirm string", () => {
     const result = serverResetSchema.safeParse({ action: "delete_all_rooms", confirm: "" });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("purgeUserSchema", () => {
+  it("accepts redact_events with optional reason", () => {
+    expect(purgeUserSchema.safeParse({ action: "redact_events" }).success).toBe(true);
+    expect(purgeUserSchema.safeParse({ action: "redact_events", reason: "GDPR request" }).success).toBe(true);
+  });
+
+  it("rejects oversized reason", () => {
+    expect(purgeUserSchema.safeParse({ action: "redact_events", reason: "x".repeat(501) }).success).toBe(false);
+  });
+
+  it("accepts delete_media, erase, and clear_external_ids", () => {
+    expect(purgeUserSchema.safeParse({ action: "delete_media" }).success).toBe(true);
+    expect(purgeUserSchema.safeParse({ action: "erase" }).success).toBe(true);
+    expect(purgeUserSchema.safeParse({ action: "clear_external_ids" }).success).toBe(true);
+  });
+
+  it("rejects unknown actions", () => {
+    expect(purgeUserSchema.safeParse({ action: "delete_account" }).success).toBe(false);
   });
 });

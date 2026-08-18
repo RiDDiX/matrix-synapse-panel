@@ -117,6 +117,19 @@ export function adminUserJoinedRooms(userId: string): string {
   return `/_synapse/admin/v1/users/${encodeURIComponent(userId)}/joined_rooms`;
 }
 
+// Redact all events of a user (async, Added in Synapse 1.116.0). Note the
+// singular /user/ segment — that is the documented path:
+// https://element-hq.github.io/synapse/latest/admin_api/user_admin_api.html#redact-events-of-a-user
+export function adminUserRedact(userId: string): string {
+  return `/_synapse/admin/v1/user/${encodeURIComponent(userId)}/redact`;
+}
+
+// Status of a redaction job:
+// https://element-hq.github.io/synapse/latest/admin_api/user_admin_api.html#check-the-status-of-a-redaction-process
+export function adminUserRedactStatus(redactId: string): string {
+  return `/_synapse/admin/v1/user/redact_status/${encodeURIComponent(redactId)}`;
+}
+
 // Send a server notice:
 // https://element-hq.github.io/synapse/latest/admin_api/server_notices.html
 export const ADMIN_SEND_SERVER_NOTICE = "/_synapse/admin/v1/send_server_notice";
