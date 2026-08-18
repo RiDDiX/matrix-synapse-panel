@@ -48,3 +48,20 @@ A true reset (empty database, empty media store) cannot be done via the Admin AP
 :::danger
 Wiping the database while keeping the same `server_name` breaks federation: remote homeservers keep cached events, device keys, and your signing key. After a full wipe the [official recommendation](https://element-hq.github.io/synapse/latest/usage/administration/admin_faq.html) is to use a new `server_name`. Always take a backup first.
 :::
+
+## User Data Purge
+
+Deactivation (even with GDPR erase) leaves a user's sent messages, uploaded media, and SSO mappings behind. The **Purge** button on deactivated users in **Admin → User Control** removes them via official Admin API endpoints:
+
+| Step | Endpoint | Requires |
+|---|---|---|
+| Redact all messages | `POST /_synapse/admin/v1/user/{userId}/redact` (async, status polling) | Synapse 1.116+ |
+| Delete all media | `DELETE /_synapse/admin/v1/users/{userId}/media` (looped) | Synapse 1.41+ |
+| Erase account | `POST /_synapse/admin/v1/deactivate/{userId}` with `erase: true` | — |
+| Clear SSO mappings | `PUT /_synapse/admin/v2/users/{userId}` with `external_ids: []` | — |
+
+Because a deactivated user has no room memberships left, the panel sweeps every room on the server and issues the redactions as the admin; events that cannot be redacted are counted and shown.
+
+:::note
+Synapse never deletes the account row or frees a user ID — the ID stays permanently reserved and can never be re-registered. Purge removes the data, not the tombstone.
+:::

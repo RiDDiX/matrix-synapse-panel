@@ -31,6 +31,7 @@ Provides an admin dashboard for managing registration tokens, rooms, integration
 - **Data Export** — export tokens, audit logs, or server configs as JSON or CSV; scoped per server; respects limits
 - **Backup** — generate a ready-to-run backup kit (`backup.sh`, `restore.sh`, cron line, checklist) for the homeserver's database, media store, and config/signing key; Docker and native deployments; a preparation tool that produces scripts, not a live backup runner
 - **Server Reset** — soft-wipe a homeserver via official Admin API endpoints (delete + purge all rooms, deactivate all non-admin users, delete all media, delete all registration tokens) with type-the-server-name confirmation; plus a generated host-level factory reset script (drop database, wipe media store) with a federation warning
+- **User Data Purge** — remove what deactivation leaves behind: redact all of a user's messages (Synapse 1.116+, async with status polling), delete all their uploaded media (1.41+), GDPR-erase the account, and clear leftover SSO mappings; the user ID itself stays permanently reserved by Synapse
 - **Webhook Notifications** — configure HTTP webhook endpoints that fire on admin events (token CRUD, user changes, media actions, federation resets, etc.); HMAC-SHA256 signature verification; per-server or global scope; last-status tracking
 - **Admin Permissions (RBAC)** — granular per-user, per-server permission system with 30+ permission types; grant/revoke via UI; global admins retain full access; fine-grained control for delegated administration
 - **Branding Management** — full white-label system: visual identity, theme colors, layout presets, custom content, footer links, asset uploads, draft/publish workflow with live preview
@@ -252,6 +253,8 @@ Ensure `X-Forwarded-For` and `X-Real-IP` headers are passed for accurate rate li
 | `POST` | `/api/admin/reset?serverId=` | Soft-wipe action (delete_all_rooms, deactivate_all_users, delete_all_media, delete_all_tokens; global admin) |
 | `PUT` | `/api/admin/reset?serverId=` | Generate host-level factory reset script (global admin) |
 | `GET` | `/api/admin/reset?serverId=&deleteId=` | Poll async room-deletion status (global admin) |
+| `POST` | `/api/admin/users/:userId/purge?serverId=` | Purge action (redact_events, delete_media, erase, clear_external_ids) |
+| `GET` | `/api/admin/users/:userId/purge?serverId=&redactId=` | Poll redaction job status |
 
 ## Database
 
@@ -446,6 +449,17 @@ Soft wipe — performed entirely through official Synapse Admin API endpoints:
 - **Delete all registration tokens** — removes every token and its panel metadata
 
 Factory reset script — a true reset (empty database, empty media store) cannot be done via the Admin API, so the panel generates a host-level script that stops Synapse, drops and recreates the database, wipes the media store, and restarts. The script warns that wiping the database while keeping the same `server_name` breaks federation; a new `server_name` is recommended after a full wipe, per the [Synapse admin FAQ](https://element-hq.github.io/synapse/latest/usage/administration/admin_faq.html).
+
+## User Data Purge
+
+Deactivating an account (even with GDPR erase) leaves three things behind, per the Synapse documentation: the user's sent messages, their uploaded media, and SSO/external ID mappings. The **Purge** action on deactivated users in User Control removes all three via official Admin API endpoints:
+
+- **Redact All Messages** — `POST /_synapse/admin/v1/user/{userId}/redact` (Synapse 1.116+, asynchronous with status polling). Deactivated users have no room memberships left, so the panel sweeps every room on the server and issues the redactions as the admin; per-event failures are reported.
+- **Delete All Media** — `DELETE /_synapse/admin/v1/users/{userId}/media` (Synapse 1.41+), looped until no files remain.
+- **Erase Account** — the standard GDPR erase, if not already applied.
+- **Clear SSO Mappings** — removes `external_ids`, which deactivation explicitly does not touch.
+
+Synapse never deletes the account row or frees a user ID — the ID stays permanently reserved and can never be re-registered. Purge removes the data, not the tombstone. On older Synapse versions unsupported steps return a clear message with the required version.
 
 ## License
 
